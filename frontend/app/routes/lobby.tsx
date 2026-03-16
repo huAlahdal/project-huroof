@@ -1,0 +1,1012 @@
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate, useLocation } from "react-router";
+import { invoke, on, startConnection } from "~/lib/signalr";
+import ThemeToggle from "~/components/ThemeToggle";
+import Dropdown from "~/components/Dropdown";
+
+interface PlayerDto { id: string; name: string; role: string; }
+interface LobbyState { sessionId: string; hostPlayerId: string | null; gridSize: number; totalRounds: number; maxPlayersPerTeam: number; players: PlayerDto[]; }
+
+interface LobbyStateWire {
+    SessionId?: string;
+    HostPlayerId?: string | null;
+    GridSize?: number;
+    TotalRounds?: number;
+    MaxPlayersPerTeam?: number;
+    Players?: Array<{
+        Id?: string;
+        Name?: string;
+        Role?: string;
+    }>;
+    error?: string;
+}
+
+function normalizeLobbyState(state: LobbyState | LobbyStateWire): LobbyState {
+    if ("sessionId" in state) {
+        return state;
+    }
+
+    return {
+        sessionId: state.SessionId ?? "",
+        hostPlayerId: state.HostPlayerId ?? null,
+        gridSize: state.GridSize ?? 5,
+        totalRounds: state.TotalRounds ?? 2,
+        maxPlayersPerTeam: state.MaxPlayersPerTeam ?? 2,
+        players: (state.Players ?? []).map((player) => ({
+            id: player.Id ?? "",
+            name: player.Name ?? "",
+            role: player.Role ?? "spectator"
+        }))
+    };
+}
+
+const ROLE_EMOJI: Record<string, string> = {
+    teamorange: "🟠", teamgreen: "🟢", gamemaster: "🎮", spectator: "👀",
+};
+const ROLE_LABEL: Record<string, string> = {
+    teamorange: "برتقالي", teamgreen: "أخضر", gamemaster: "مدير اللعبة", spectator: "مشاهد",
+};
+const ROLE_CLASS: Record<string, string> = {
+    teamorange: "orange", teamgreen: "green", gamemaster: "master", spectator: "",
+};
+
+const PLAYER_AVATARS = ["😀", "😎", "🤩", "🥸", "😏", "🤓", "😤", "🥳", "🤑", "😈", "🦊", "🐯", "🦁", "🐻", "🐼", "🐸"];
+function getAvatar(name: string) {
+    let hash = 0;
+    for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) & 0xffffffff;
+    return PLAYER_AVATARS[Math.abs(hash) % PLAYER_AVATARS.length];
+}
+
+// User icon SVG as a component
+function UserIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+    return (
+        <svg className={className} style={style} fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+        </svg>
+    );
+}
+
+export default function LobbyPage() {
+    const { sessionId } = useParams();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [lobby, setLobby] = useState<LobbyState | null>(null);
+    const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
+    const [myNameDraft, setMyNameDraft] = useState("");
+    const [joinName, setJoinName] = useState("");
+    const [joinPassword, setJoinPassword] = useState("");
+    const [hostRenameId, setHostRenameId] = useState<string | null>(null);
+    const [hostRenameDraft, setHostRenameDraft] = useState("");
+    const [settingsDraft, setSettingsDraft] = useState({ gridSize: 5, totalRounds: 2, maxPlayersPerTeam: 2 });
+    const [needsJoin, setNeedsJoin] = useState(false);
+    const [error, setError] = useState("");
+    const [connecting, setConnecting] = useState(true);
+    const [confirmEnd, setConfirmEnd] = useState(false);
+    const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
+    const [newPassword, setNewPassword] = useState("");
+    const [changingPassword, setChangingPassword] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const loadLobbyState = useCallback(async () => {
+        try {
+            const state = await invoke<LobbyStateWire>("GetLobbyState");
+            if (!state.error) {
+                setLobby(normalizeLobbyState(state));
+            }
+        } catch {
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!sessionId) return;
+        let cancelled = false;
+        let checkCount = 0;
+        const init = async () => {
+            try {
+                await startConnection();
+                const storedPass = sessionStorage.getItem(`huroof_pass_${sessionId}`);
+                const storedName = sessionStorage.getItem(`huroof_name_${sessionId}`);
+                const storedPlayerId = sessionStorage.getItem(`huroof_playerId_${sessionId}`);
+
+                // Check if session exists
+                if (storedPass) {
+                    const result = await invoke<{ success?: boolean; error?: string; playerId?: string }>(
+                        "JoinSession", sessionId, storedPass, storedName || "temp"
+                    );
+                    if (!cancelled) {
+                        if (result.error && result.error.includes("not found")) {
+                            // Session not found, redirect to home
+                            navigate("/");
+                            return;
+                        }
+                        if (result.success) {
+                            setMyPlayerId(result.playerId || storedPlayerId || null);
+                            await loadLobbyState();
+                            if (!storedName) {
+                                // If we joined with a temp name, we need to update it
+                                setNeedsJoin(true);
+                            }
+                        } else {
+                            // Show error message
+                            setError(result.error || "");
+                            setNeedsJoin(true);
+                            if (storedPass) {
+                                setJoinPassword(storedPass);
+                            }
+                        }
+                    }
+                } else {
+                    setNeedsJoin(true);
+                    if (storedPass) {
+                        setJoinPassword(storedPass);
+                    }
+                }
+            } catch { if (!cancelled) setError("فشل الاتصال بالخادم"); }
+            if (!cancelled) setConnecting(false);
+        };
+        init();
+        return () => { cancelled = true; };
+    }, [sessionId, navigate, loadLobbyState]);
+
+    useEffect(() => {
+        const unsubLobby = on("LobbyUpdated", (state: unknown) => {
+            setLobby(normalizeLobbyState(state as LobbyStateWire));
+        });
+        const unsubLobbyLower = on("lobbyupdated", (state: unknown) => {
+            setLobby(normalizeLobbyState(state as LobbyStateWire));
+        });
+        const unsubGame = on("GameStateUpdated", (state: unknown) => {
+            const s = state as { phase: string };
+            if (s.phase !== "lobby") navigate(`/game/${sessionId}`);
+        });
+        const unsubEnd = on("SessionEnded", () => navigate("/"));
+        const unsubRemoved = on("RemovedFromSession", () => {
+            if (sessionId) {
+                sessionStorage.removeItem(`huroof_name_${sessionId}`);
+                sessionStorage.removeItem(`huroof_playerId_${sessionId}`);
+                sessionStorage.removeItem(`huroof_creator_${sessionId}`);
+            }
+            navigate("/");
+        });
+        const unsubKicked = on("KickedFromSession", (data: unknown) => {
+            const kickData = data as { reason: string };
+            if (sessionId) {
+                sessionStorage.removeItem(`huroof_name_${sessionId}`);
+                sessionStorage.removeItem(`huroof_playerId_${sessionId}`);
+                sessionStorage.removeItem(`huroof_creator_${sessionId}`);
+                sessionStorage.removeItem(`huroof_pass_${sessionId}`);
+            }
+            navigate("/", { state: { kicked: true, reason: kickData.reason } });
+        });
+        return () => { unsubLobby(); unsubLobbyLower(); unsubGame(); unsubEnd(); unsubRemoved(); unsubKicked(); };
+    }, [sessionId, navigate]);
+
+    // Check if session doesn't exist after connection
+    useEffect(() => {
+        if (!connecting && !lobby && !needsJoin) {
+            // If we're not connecting, not in join mode, and have no lobby data,
+            // the session probably doesn't exist
+            const timer = setTimeout(() => {
+                if (!lobby) {
+                    navigate("/");
+                }
+            }, 2000); // Wait 2 seconds to be sure
+            return () => clearTimeout(timer);
+        }
+    }, [connecting, lobby, needsJoin, navigate]);
+
+    useEffect(() => {
+        if (!lobby) return;
+        setSettingsDraft({ gridSize: lobby.gridSize, totalRounds: lobby.totalRounds, maxPlayersPerTeam: lobby.maxPlayersPerTeam });
+    }, [lobby?.gridSize, lobby?.totalRounds, lobby?.maxPlayersPerTeam]);
+
+    useEffect(() => {
+        const currentName = lobby?.players?.find((p) => p.id === myPlayerId)?.name ?? "";
+        setMyNameDraft(currentName);
+    }, [lobby?.players, myPlayerId]);
+
+    const handleJoinFromLobby = useCallback(async () => {
+        if (!sessionId || !joinName.trim()) return;
+        setError("");
+        const storedPass = sessionStorage.getItem(`huroof_pass_${sessionId}`);
+        const passwordToUse = joinPassword || storedPass;
+        if (!passwordToUse) { 
+            setError(""); 
+            return; 
+        }
+        try {
+            const result = await invoke<{ success?: boolean; error?: string; playerId?: string }>(
+                "JoinSession", sessionId, passwordToUse, joinName
+            );
+            if (result.success) {
+                sessionStorage.setItem(`huroof_pass_${sessionId}`, passwordToUse);
+                sessionStorage.setItem(`huroof_name_${sessionId}`, joinName);
+                sessionStorage.setItem(`huroof_playerId_${sessionId}`, result.playerId || "");
+                setMyPlayerId(result.playerId || null);
+                await loadLobbyState();
+                setNeedsJoin(false);
+            } else {
+                setError(result.error || "");
+            }
+        } catch (e: any) { setError(e.message || "فشل الاتصال"); }
+    }, [sessionId, joinName, joinPassword, loadLobbyState]);
+
+    const handleSetRole = useCallback(async (role: string) => {
+        try {
+            const result = await invoke<{ success?: boolean; error?: string }>("SetRole", role);
+            if (!result.success) { setError(result.error || ""); setTimeout(() => setError(""), 3000); }
+        } catch (e: any) { setError(e.message); }
+    }, []);
+
+    const handleUpdateMyName = useCallback(async () => {
+        if (!sessionId || !myNameDraft.trim()) return;
+        try {
+            const result = await invoke<{ success?: boolean; error?: string }>("UpdateMyName", myNameDraft);
+            if (result.success) {
+                sessionStorage.setItem(`huroof_name_${sessionId}`, myNameDraft.trim());
+            } else {
+                setError(result.error || "");
+            }
+        } catch (e: any) { setError(e.message || ""); }
+    }, [sessionId, myNameDraft]);
+
+    const handleLeaveSession = useCallback(async () => {
+        try { await invoke("LeaveSession"); }
+        catch { }
+        if (sessionId) {
+            sessionStorage.removeItem(`huroof_name_${sessionId}`);
+            sessionStorage.removeItem(`huroof_playerId_${sessionId}`);
+            sessionStorage.removeItem(`huroof_creator_${sessionId}`);
+        }
+        navigate("/");
+    }, [navigate, sessionId]);
+
+    const handleHostRename = useCallback(async () => {
+        if (!hostRenameId || !hostRenameDraft.trim()) return;
+        try {
+            const result = await invoke<{ success?: boolean; error?: string }>("RenamePlayer", hostRenameId, hostRenameDraft);
+            if (result.success) {
+                if (hostRenameId === myPlayerId && sessionId) {
+                    sessionStorage.setItem(`huroof_name_${sessionId}`, hostRenameDraft.trim());
+                }
+                setHostRenameId(null);
+                setHostRenameDraft("");
+            } else {
+                setError(result.error || "");
+            }
+        } catch (e: any) { setError(e.message || ""); }
+    }, [hostRenameId, hostRenameDraft, myPlayerId, sessionId]);
+
+    const handleKickPlayer = useCallback(async (playerId: string) => {
+        try {
+            const result = await invoke<{ success?: boolean; error?: string }>("KickPlayer", playerId);
+            if (!result.success) setError(result.error || "");
+            else setSelectedPlayerId(null);
+        } catch (e: any) { setError(e.message || ""); }
+    }, []);
+
+    const handleSwitchTeam = useCallback(async (playerId: string, newRole: string) => {
+        try {
+            const result = await invoke<{ success?: boolean; error?: string }>("SwitchPlayerTeam", playerId, newRole);
+            if (!result.success) setError(result.error || "");
+            else setSelectedPlayerId(null);
+        } catch (e: any) { setError(e.message || ""); }
+    }, []);
+
+    const handleMoveSpectator = useCallback(async (playerId: string, teamRole: string) => {
+        try {
+            const result = await invoke<{ success?: boolean; error?: string }>("MoveSpectatorToTeam", playerId, teamRole);
+            if (!result.success) setError(result.error || "");
+            else setSelectedPlayerId(null);
+        } catch (e: any) { setError(e.message || ""); }
+    }, []);
+
+    const handleUpdateSettings = useCallback(async () => {
+        try {
+            await invoke("UpdateSettings", settingsDraft.gridSize, settingsDraft.totalRounds);
+        } catch (e: any) { setError(e.message || ""); }
+    }, [settingsDraft]);
+
+    const handleUpdateMaxPlayers = useCallback(async () => {
+        try {
+            const result = await invoke<{ success?: boolean; error?: string }>("UpdateMaxPlayersPerTeam", settingsDraft.maxPlayersPerTeam);
+            if (!result.success) setError(result.error || "");
+        } catch (e: any) { setError(e.message || ""); }
+    }, [settingsDraft.maxPlayersPerTeam]);
+
+    const handleStartGame = useCallback(async () => {
+        try { await invoke("StartGame", null, null, null, null); }
+        catch (e: any) { setError(e.message); }
+    }, []);
+
+    const handleEndSession = useCallback(async () => {
+        try { await invoke("EndSession"); }
+        catch { navigate("/"); }
+    }, [navigate]);
+
+    const handleChangePassword = useCallback(async () => {
+        if (!sessionId || !newPassword.trim()) return;
+        try {
+            const result = await invoke<{ success?: boolean; error?: string }>("ChangePassword", newPassword);
+            if (result.success) {
+                sessionStorage.setItem(`huroof_pass_${sessionId}`, newPassword);
+                setNewPassword("");
+                setChangingPassword(false);
+                setShowPassword(false);
+            } else {
+                setError(result.error || "");
+                setTimeout(() => setError(""), 3000);
+            }
+        } catch (e: any) {
+            setError(e.message || "");
+            setTimeout(() => setError(""), 3000);
+        }
+    }, [sessionId, newPassword]);
+
+    const handleCopySessionId = useCallback(async () => {
+        if (!sessionId) return;
+        
+        // Try modern clipboard API first
+        if (navigator.clipboard && window.isSecureContext) {
+            try {
+                await navigator.clipboard.writeText(sessionId);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+                return;
+            } catch (err) {
+                console.log('Modern clipboard failed, trying fallback');
+            }
+        }
+        
+        // Fallback method for older browsers or non-secure contexts
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = sessionId;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            textArea.style.top = "-999999px";
+            textArea.style.opacity = "0";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            if (successful) {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } else {
+                setError("");
+                setTimeout(() => setError(""), 3000);
+            }
+        } catch (err) {
+            setError("");
+            setTimeout(() => setError(""), 3000);
+        }
+    }, [sessionId]);
+
+    const players = lobby?.players ?? [];
+    const myPlayer = players.find((p) => p.id === myPlayerId);
+    const isHost = !!(myPlayerId && lobby?.hostPlayerId === myPlayerId);
+    const isGameMaster = myPlayer?.role === "gamemaster";
+    const hasGameMaster = players.some((p) => p.role === "gamemaster");
+    const canControlGame = isGameMaster; // Only game master can control game
+    const orangePlayers = players.filter((p) => p.role === "teamorange");
+    const greenPlayers = players.filter((p) => p.role === "teamgreen");
+    const spectators = players.filter((p) => p.role === "spectator");
+
+    if (connecting) {
+        return (
+            <div className="game-bg min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="text-4xl mb-3 logo-spin">⏳</div>
+                    <p className="text-sm font-bold" style={{ color: "var(--text-2)" }}>جاري الاتصال...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (needsJoin) {
+        return (
+            <div className="game-bg min-h-screen flex items-center justify-center px-4">
+                <div className="glass-card w-full max-w-md p-8 text-center fade-in-scale">
+                    <div className="text-5xl mb-4">🎮</div>
+                    <h2 className="text-2xl font-black mb-1" style={{ color: "var(--text-1)" }}>انضمام للجلسة</h2>
+                    <p className="text-sm mb-6" style={{ color: "var(--text-3)", direction: "ltr" }}>
+                        رمز الجلسة: 
+                        <span className="font-black" style={{ color: "var(--accent)" }}>{sessionId}</span>
+                        <button 
+                            onClick={handleCopySessionId}
+                            className="mr-2 p-1 rounded hover:bg-white/10 transition-all duration-200"
+                            title={copied ? "تم النسخ!" : "نسخ الرمز"}
+                        >
+                            {copied ? (
+                                <svg className="w-4 h-4 text-green-400 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                            ) : (
+                                <svg className="w-4 h-4 text-white/60 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                            )}
+                        </button>
+                    </p>
+                    <input
+                        type="password" value={joinPassword}
+                        onChange={(e) => setJoinPassword(e.target.value)}
+                        placeholder="كلمة المرور"
+                        className="input-field mb-3"
+                        autoFocus
+                    />
+                    <input
+                        type="text" value={joinName}
+                        onChange={(e) => setJoinName(e.target.value)}
+                        placeholder="أدخل اسمك"
+                        className="input-field mb-4"
+                        maxLength={24}
+                        onKeyDown={(e) => e.key === "Enter" && handleJoinFromLobby()}
+                    />
+                    {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
+                    <button
+                        className="btn-primary w-full py-4 text-xl"
+                        onClick={handleJoinFromLobby}
+                        disabled={!joinName.trim() || !joinPassword.trim()}
+                        style={{ opacity: (!joinName.trim() || !joinPassword.trim()) ? 0.5 : 1 }}
+                    >
+                        ✅ انضمام
+                    </button>
+                    <button className="w-full mt-3 text-sm font-semibold" style={{ background: "none", border: "none", color: "var(--text-3)", cursor: "pointer" }} onClick={() => navigate("/")}>
+                        ← رجوع
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
+            {/* Animated background elements */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute -top-40 -right-40 w-60 h-60 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute -bottom-40 -left-40 w-60 h-60 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }}></div>
+            </div>
+
+            {/* Header */}
+            <header className="relative backdrop-blur-xl bg-white/5 border-b border-white/10">
+                <div className="max-w-6xl mx-auto px-4 py-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-purple-500/25">
+                                H
+                            </div>
+                            <div>
+                                <h1 className="text-lg font-bold text-white">حروف</h1>
+                                <p className="text-xs text-white/60">لعبة الكلمات</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <ThemeToggle />
+                            <button 
+                                onClick={handleLeaveSession}
+                                className="group relative px-3 py-1.5 text-sm font-medium text-white/80 hover:text-white transition-all duration-200"
+                            >
+                                <span className="relative z-10">مغادرة</span>
+                                <div className="absolute inset-0 bg-red-500/10 rounded-md border border-red-500/20 group-hover:bg-red-500/20 transition-all duration-200"></div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div className="relative max-w-6xl mx-auto px-4 py-6">
+                {/* Main Content - Compact Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    
+                    {/* Left Column - Session Info & Settings */}
+                    <div className="lg:col-span-1 space-y-4">
+                        
+                        {/* Session Status Card */}
+                        <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-lg font-semibold text-white">حالة الجلسة</h2>
+                                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center py-2 border-b border-white/5">
+                                    <span className="text-sm text-white/60">اللاعبون المتصلون</span>
+                                    <span className="text-sm font-semibold text-white">{players.length}</span>
+                                </div>
+                                <div className="flex justify-between items-center py-2 border-b border-white/5">
+                                    <span className="text-sm text-white/60">حجم الشبكة</span>
+                                    <span className="text-sm font-semibold text-white">{lobby?.gridSize ?? 5}×{lobby?.gridSize ?? 5}</span>
+                                </div>
+                                <div className="flex justify-between items-center py-2">
+                                    <span className="text-sm text-white/60">عدد الجولات</span>
+                                    <span className="text-sm font-semibold text-white">{lobby?.totalRounds ?? 2}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Game Master Controls */}
+                        {canControlGame && (
+                            <>
+                                {/* Session Info */}
+                                <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                                    <h2 className="text-base font-semibold text-white mb-3">معلومات الجلسة</h2>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="text-xs text-white/40 uppercase tracking-wider">اسمك</label>
+                                            <div className="mt-1 flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={myNameDraft}
+                                                    onChange={(e) => setMyNameDraft(e.target.value)}
+                                                    onBlur={handleUpdateMyName}
+                                                    className="flex-1 px-3 py-1.5 bg-white/5 rounded-lg text-white placeholder-white/40 text-sm border border-white/10 focus:border-white/20 focus:outline-none"
+                                                    placeholder="أدخل اسمك"
+                                                />
+                                                <button 
+                                                    onClick={handleUpdateMyName}
+                                                    className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all duration-200 text-xs font-medium"
+                                                >
+                                                    تحديث
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-white/40 uppercase tracking-wider">رقم الجلسة</label>
+                                            <div className="mt-1 flex items-center gap-2">
+                                                <code className="flex-1 px-3 py-1.5 bg-white/5 rounded-lg text-white font-mono text-sm border border-white/10">
+                                                    {sessionId}
+                                                </code>
+                                                <button 
+                                                    onClick={handleCopySessionId}
+                                                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-all duration-200"
+                                                    title={copied ? "تم النسخ!" : "نسخ الرمز"}
+                                                >
+                                                    {copied ? (
+                                                        <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-white/40 uppercase tracking-wider">كلمة المرور</label>
+                                            <div className="mt-1 flex items-center gap-2">
+                                                <code className="flex-1 px-3 py-1.5 bg-white/5 rounded-lg text-white font-mono text-sm border border-white/10">
+                                                    {showPassword ? sessionStorage.getItem(`huroof_pass_${sessionId}`) || "" : "••••••••"}
+                                                </code>
+                                                <button 
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-all duration-200"
+                                                >
+                                                    {showPassword ? 
+                                                        <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                                        </svg>
+                                                        :
+                                                        <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                        </svg>
+                                                    }
+                                                </button>
+                                            </div>
+                                            {!changingPassword ? (
+                                                <button 
+                                                    onClick={() => setChangingPassword(true)}
+                                                    className="mt-2 text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                                                >
+                                                    تغيير كلمة المرور
+                                                </button>
+                                            ) : (
+                                                <div className="mt-2 flex gap-2">
+                                                    <input 
+                                                        type="password"
+                                                        value={newPassword}
+                                                        onChange={(e) => setNewPassword(e.target.value)}
+                                                        placeholder="كلمة المرور الجديدة"
+                                                        className="flex-1 px-3 py-1.5 bg-white/5 rounded-lg text-white placeholder-white/40 text-sm border border-white/10 focus:border-white/20 focus:outline-none"
+                                                    />
+                                                    <button 
+                                                        onClick={handleChangePassword}
+                                                        disabled={!newPassword.trim()}
+                                                        className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 text-xs font-medium"
+                                                    >
+                                                        حفظ
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => { setChangingPassword(false); setNewPassword(""); }}
+                                                        className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 border border-white/10 text-xs"
+                                                    >
+                                                        إلغاء
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Settings */}
+                                <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                                    <h2 className="text-base font-semibold text-white mb-3">الإعدادات</h2>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="text-xs text-white/40 uppercase tracking-wider">حجم الشبكة</label>
+                                            <div className="mt-2">
+                                                <Dropdown
+                                                    value={settingsDraft.gridSize.toString()}
+                                                    onChange={(value) => setSettingsDraft((current) => ({ ...current, gridSize: Number(value) }))}
+                                                    options={[
+                                                        { value: "4", label: "4×4" },
+                                                        { value: "5", label: "5×5" },
+                                                        { value: "6", label: "6×6" },
+                                                    ]}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-white/40 uppercase tracking-wider">عدد الجولات</label>
+                                            <div className="mt-2">
+                                                <Dropdown
+                                                    value={settingsDraft.totalRounds.toString()}
+                                                    onChange={(value) => setSettingsDraft((current) => ({ ...current, totalRounds: Number(value) }))}
+                                                    options={[
+                                                        { value: "2", label: "2 جولة" },
+                                                        { value: "3", label: "3 جولات" },
+                                                        { value: "4", label: "4 جولات" },
+                                                        { value: "5", label: "5 جولات" },
+                                                        { value: "6", label: "6 جولات" },
+                                                    ]}
+                                                />
+                                            </div>
+                                        </div>
+                                        {isGameMaster && (
+                                            <div>
+                                                <label className="text-xs text-white/40 uppercase tracking-wider">الحد الأقصى للاعبين في الفريق</label>
+                                                <div className="mt-2">
+                                                    <Dropdown
+                                                        value={settingsDraft.maxPlayersPerTeam.toString()}
+                                                        onChange={(value) => setSettingsDraft((current) => ({ ...current, maxPlayersPerTeam: Number(value) }))}
+                                                        options={[
+                                                            { value: "1", label: "1 لاعب" },
+                                                            { value: "2", label: "2 لاعبين" },
+                                                            { value: "3", label: "3 لاعبين" },
+                                                            { value: "4", label: "4 لاعبين" },
+                                                            { value: "5", label: "5 لاعبين" },
+                                                        ]}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                        <button className="w-full px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all duration-200 text-sm font-medium" onClick={handleUpdateSettings}>
+                                            حفظ الإعدادات
+                                        </button>
+                                        {isGameMaster && (
+                                            <button className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all duration-200 text-sm font-medium" onClick={handleUpdateMaxPlayers}>
+                                                تحديث الحد الأقصى للاعبين
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Player Profile - Only show for non-host players */}
+                        {!isHost && (
+                        <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                            <h2 className="text-base font-semibold text-white mb-3">ملفك</h2>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-xs text-white/40 uppercase tracking-wider">اسمك</label>
+                                    <div className="mt-1 flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={myNameDraft}
+                                            onChange={(e) => setMyNameDraft(e.target.value)}
+                                            onBlur={handleUpdateMyName}
+                                            className="flex-1 px-3 py-1.5 bg-white/5 rounded-lg text-white placeholder-white/40 text-sm border border-white/10 focus:border-white/20 focus:outline-none"
+                                            placeholder="أدخل اسمك"
+                                        />
+                                        <button 
+                                            onClick={handleUpdateMyName}
+                                            className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all duration-200 text-xs font-medium"
+                                        >
+                                            تحديث
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-white/40 uppercase tracking-wider">دورك الحالي</label>
+                                    <div className="mt-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-2xl">{ROLE_EMOJI[myPlayer?.role || ""] || "❓"}</span>
+                                            <span className="text-sm font-medium text-white">{ROLE_LABEL[myPlayer?.role || ""] || "غير محدد"}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {isHost && (
+                                    <div>
+                                        <label className="text-xs text-white/40 uppercase tracking-wider">اختر دورك</label>
+                                        <div className="mt-2 grid grid-cols-2 gap-2">
+                                            {Object.entries(ROLE_LABEL).map(([role, label]) => {
+                                                const isDisabled = role === "gamemaster" && !isGameMaster;
+                                                const isSelected = myPlayer?.role === role;
+                                                return (
+                                                    <button
+                                                        key={role}
+                                                        onClick={() => handleSetRole(role)}
+                                                        disabled={isDisabled}
+                                                        className={`p-2 rounded-lg text-xs font-medium transition-all duration-200 ${
+                                                            isSelected
+                                                                ? "bg-violet-600 text-white"
+                                                                : isDisabled
+                                                                ? "opacity-50 cursor-not-allowed bg-white/5 text-white/40"
+                                                                : "bg-white/5 text-white/80 hover:bg-white/10"
+                                                        }`}
+                                                    >
+                                                        <span className="ml-1">{ROLE_EMOJI[role]}</span>
+                                                        {label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        )}
+                    </div>
+
+                    {/* Center Column - Players */}
+                    <div className="lg:col-span-2">
+                        <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                            <h2 className="text-lg font-semibold text-white mb-6">اللاعبون</h2>
+                            
+                            {/* Teams Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {[
+                                    { 
+                                        label: "الالفريق البرتقالي", 
+                                        players: orangePlayers, 
+                                        color: "from-orange-500 to-red-500",
+                                        borderColor: "border-orange-500/20",
+                                        bgColor: "bg-orange-500/10"
+                                    },
+                                    { 
+                                        label: "الالفريق الأخضر", 
+                                        players: greenPlayers, 
+                                        color: "from-green-500 to-emerald-500",
+                                        borderColor: "border-green-500/20",
+                                        bgColor: "bg-green-500/10"
+                                    },
+                                    { 
+                                        label: "مدير اللعبة", 
+                                        players: players.filter((p) => p.role === "gamemaster"), 
+                                        color: "from-violet-500 to-purple-500",
+                                        borderColor: "border-violet-500/20",
+                                        bgColor: "bg-violet-500/10"
+                                    },
+                                    { 
+                                        label: "المشاهدون", 
+                                        players: spectators, 
+                                        color: "from-slate-500 to-gray-500",
+                                        borderColor: "border-slate-500/20",
+                                        bgColor: "bg-slate-500/10"
+                                    },
+                                ].map((team) => (
+                                    <div key={team.label} className={`rounded-xl border ${team.borderColor} ${team.bgColor} p-4`}>
+                                        <h3 className={`text-sm font-semibold mb-3 bg-gradient-to-r ${team.color} bg-clip-text text-transparent`}>
+                                            {team.label}
+                                        </h3>
+                                        <div className="space-y-2">
+                                            {team.players.map((p) => (
+                                                <div
+                                                    key={p.id}
+                                                    className={`group relative rounded-lg bg-white/5 border border-white/10 p-3 transition-all duration-200 ${
+                                                        isHost && p.id !== myPlayerId ? 'cursor-pointer hover:bg-white/10' : ''
+                                                    }`}
+                                                    onClick={() => {
+                                                        if (isHost && p.id !== myPlayerId) {
+                                                            setSelectedPlayerId(selectedPlayerId === p.id ? null : p.id);
+                                                        }
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${team.color} flex items-center justify-center flex-shrink-0`}>
+                                                            <UserIcon className="w-5 h-5 text-white" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="font-medium text-white truncate">{p.name}</p>
+                                                                {lobby?.hostPlayerId === p.id && (
+                                                                    <span className="text-yellow-400" title="صاحب الجلسة">👑</span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-xs text-white/60">
+                                                                {p.id === myPlayerId ? "أنت" : lobby?.hostPlayerId === p.id ? "صاحب الجلسة" : ""}
+                                                            </p>
+                                                        </div>
+                                                        {isGameMaster && p.id !== myPlayerId && (
+                                                            <span className="text-white/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                {selectedPlayerId === p.id ? '▲' : '▼'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {isGameMaster && p.id !== myPlayerId && selectedPlayerId === p.id && (
+                                                        <div className="flex gap-2 mt-3 fade-in-scale">
+                                                            {isHost && (
+                                                                <button
+                                                                    className="flex-1 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-xs font-medium transition-colors"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setHostRenameId(p.id);
+                                                                        setHostRenameDraft(p.name);
+                                                                        setSelectedPlayerId(null);
+                                                                    }}
+                                                                >
+                                                                    تعديل
+                                                                </button>
+                                                            )}
+                                                            {p.role === "spectator" ? (
+                                                                <>
+                                                                    <button
+                                                                        className="flex-1 px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg text-xs font-medium transition-colors"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleMoveSpectator(p.id, "teamorange");
+                                                                        }}
+                                                                    >
+                                                                        للبرتقالي
+                                                                    </button>
+                                                                    <button
+                                                                        className="flex-1 px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-xs font-medium transition-colors"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleMoveSpectator(p.id, "teamgreen");
+                                                                        }}
+                                                                    >
+                                                                        للأخضر
+                                                                    </button>
+                                                                </>
+                                                            ) : p.role === "teamorange" ? (
+                                                                <button
+                                                                    className="flex-1 px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-xs font-medium transition-colors"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleSwitchTeam(p.id, "teamgreen");
+                                                                    }}
+                                                                >
+                                                                    للأخضر
+                                                                </button>
+                                                            ) : p.role === "teamgreen" ? (
+                                                                <button
+                                                                    className="flex-1 px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg text-xs font-medium transition-colors"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleSwitchTeam(p.id, "teamorange");
+                                                                    }}
+                                                                >
+                                                                    للبرتقالي
+                                                                </button>
+                                                            ) : null}
+                                                            <button
+                                                                className="flex-1 px-3 py-1.5 bg-slate-500/20 hover:bg-slate-500/30 text-slate-400 rounded-lg text-xs font-medium transition-colors"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleSwitchTeam(p.id, "spectator");
+                                                                }}
+                                                            >
+                                                                مشاهد
+                                                            </button>
+                                                            <button
+                                                                className="flex-1 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleKickPlayer(p.id);
+                                                                    setSelectedPlayerId(null);
+                                                                }}
+                                                            >
+                                                                طرد
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            {team.players.length === 0 && (
+                                                <p className="text-center py-4 text-white/40 text-sm">لا يوجد لاعبون</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Role Selection */}
+                        {myPlayer && (
+                            <div className="mt-4 backdrop-blur-xl bg-white/5 rounded-2xl border border-white/10 p-6 shadow-xl">
+                                <h2 className="text-lg font-semibold text-white mb-4">اختر دورك</h2>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    {[
+                                        { key: "teamorange", label: "برتقالي", icon: "🟠", color: "from-orange-500 to-red-500" },
+                                        { key: "teamgreen", label: "أخضر", icon: "🟢", color: "from-green-500 to-emerald-500" },
+                                        { key: "gamemaster", label: "مدير", icon: "🎮", color: "from-violet-500 to-purple-500", disabled: hasGameMaster && !isGameMaster },
+                                        { key: "spectator", label: "مشاهد", icon: "👀", color: "from-slate-500 to-gray-500" },
+                                    ].map((role) => {
+                                        const active = myPlayer.role === role.key;
+                                        return (
+                                            <button
+                                                key={role.key}
+                                                className={`relative px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                                                    role.disabled 
+                                                        ? 'opacity-50 cursor-not-allowed' 
+                                                        : 'cursor-pointer'
+                                                } ${
+                                                    active 
+                                                        ? `bg-gradient-to-r ${role.color} text-white shadow-lg` 
+                                                        : 'bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10'
+                                                }`}
+                                                onClick={() => !role.disabled && handleSetRole(role.key)}
+                                                disabled={role.disabled}
+                                            >
+                                                <div className="text-2xl mb-1">{role.icon}</div>
+                                                <div className="text-sm">{role.label}</div>
+                                                {active && (
+                                                    <div className="absolute inset-0 rounded-xl bg-white/20 animate-pulse"></div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Start Game Button */}
+                        {canControlGame && lobby && players.length >= 2 && orangePlayers.length >= 1 && greenPlayers.length >= 1 && (
+                            <div className="mt-6 text-center">
+                                <button 
+                                    className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl font-semibold text-lg shadow-lg shadow-green-500/25 transition-all duration-200 transform hover:scale-105"
+                                    onClick={handleStartGame}
+                                >
+                                    بدء اللعبة
+                                </button>
+                            </div>
+                        )}
+                        
+                        {/* Show warning if teams are not balanced */}
+                        {canControlGame && lobby && players.length >= 2 && (orangePlayers.length === 0 || greenPlayers.length === 0) && (
+                            <div className="mt-6 text-center">
+                                <div className="px-6 py-3 bg-yellow-500/20 backdrop-blur-xl border border-yellow-500/30 rounded-lg">
+                                    <p className="text-yellow-400 text-sm font-medium">
+                                        ⚠️ يجب أن يكون هناك لاعب واحد على الأقل في كل فريق لبدء اللعبة
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Error Display - More Compact */}
+            {error && (
+                <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 px-6 py-3 bg-red-500/20 backdrop-blur-xl border border-red-500/30 rounded-lg text-red-400 text-sm font-medium animate-bounce flex items-center gap-3">
+                    <span>{error}</span>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        className="px-3 py-1 bg-red-500/30 hover:bg-red-500/40 rounded-md text-xs font-semibold transition-colors"
+                    >
+                        إعادة المحاولة
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}

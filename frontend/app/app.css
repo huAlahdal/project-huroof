@@ -1,0 +1,517 @@
+@import "tailwindcss";
+
+/* ─── Dark theme (default) ─── */
+:root {
+  --bg: #0f0a1e;
+  --bg-2: #1a1033;
+  --bg-3: #1e1b3a;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-hover: rgba(255, 255, 255, 0.09);
+  --surface-active: rgba(255, 255, 255, 0.13);
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text-1: #ffffff;
+  --text-2: rgba(255, 255, 255, 0.70);
+  --text-3: rgba(255, 255, 255, 0.40);
+  --text-4: rgba(255, 255, 255, 0.20);
+  --accent: #a855f7;
+  --accent-2: #7c3aed;
+  --accent-3: #ec4899;
+  --team-orange: #f97316;
+  --team-orange-dim: rgba(249, 115, 22, 0.18);
+  --team-green: #22c55e;
+  --team-green-dim: rgba(34, 197, 94, 0.18);
+  --hex-empty: #1e1b3a;
+  --hex-border: #6d28d9;
+  --scrollbar-track: #1a1033;
+  --scrollbar-thumb: #6d28d9;
+  --game-bg-1: #1a0a3e;
+  --game-bg-2: #0f0a1e;
+  --game-bg-3: #060412;
+  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --input-border: rgba(255, 255, 255, 0.15);
+  --input-text: #ffffff;
+  --input-placeholder: rgba(255, 255, 255, 0.30);
+}
+
+/* ─── Light theme ─── */
+[data-theme="light"] {
+  --bg: #f3f0fb;
+  --bg-2: #e8e3f8;
+  --bg-3: #ddd6f8;
+  --surface: rgba(255, 255, 255, 0.75);
+  --surface-hover: rgba(255, 255, 255, 0.90);
+  --surface-active: rgba(255, 255, 255, 1);
+  --border: rgba(124, 58, 237, 0.14);
+  --border-strong: rgba(124, 58, 237, 0.28);
+  --text-1: #1a0a3e;
+  --text-2: rgba(26, 10, 62, 0.70);
+  --text-3: rgba(26, 10, 62, 0.45);
+  --text-4: rgba(26, 10, 62, 0.22);
+  --accent: #7c3aed;
+  --accent-2: #6d28d9;
+  --accent-3: #db2777;
+  --team-orange: #ea580c;
+  --team-orange-dim: rgba(234, 88, 12, 0.12);
+  --team-green: #16a34a;
+  --team-green-dim: rgba(22, 163, 74, 0.12);
+  --hex-empty: #e0d9f8;
+  --hex-border: #9333ea;
+  --scrollbar-track: #e8e3f8;
+  --scrollbar-thumb: #9333ea;
+  --game-bg-1: #ede8fb;
+  --game-bg-2: #f3f0fb;
+  --game-bg-3: #faf8ff;
+  --card-shadow: 0 4px 24px rgba(124, 58, 237, 0.10);
+  --input-bg: rgba(255, 255, 255, 0.80);
+  --input-border: rgba(124, 58, 237, 0.22);
+  --input-text: #1a0a3e;
+  --input-placeholder: rgba(26, 10, 62, 0.35);
+}
+
+/* ─── Base ─── */
+body {
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: 'Cairo', 'Tajawal', Arial, sans-serif;
+  direction: rtl;
+  margin: 0;
+  overflow-x: hidden;
+  transition: background 0.3s, color 0.3s;
+}
+
+/* ─── Game background ─── */
+.game-bg {
+  background: radial-gradient(ellipse at top, var(--game-bg-1) 0%, var(--game-bg-2) 60%, var(--game-bg-3) 100%);
+  min-height: 100vh;
+  transition: background 0.3s;
+}
+
+/* ─── Glass card ─── */
+.glass-card {
+  background: var(--surface);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--card-shadow);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+/* ─── Hex cell hover (outward glow, no scale) ─── */
+.hex-cell {
+  transition: filter 0.18s ease;
+  cursor: pointer;
+}
+
+.hex-cell:hover {
+  filter: brightness(1.4) drop-shadow(0 0 10px rgba(168, 85, 247, 0.75));
+}
+
+/* ─── Hex animations ─── */
+@keyframes hexPulse {
+
+  0%,
+  100% {
+    filter: brightness(1) drop-shadow(0 0 6px #a855f7);
+  }
+
+  50% {
+    filter: brightness(1.4) drop-shadow(0 0 20px #a855f7);
+  }
+}
+
+.hex-selected {
+  animation: hexPulse 1.2s ease-in-out infinite;
+}
+
+/* ─── Buzzer animations ─── */
+@keyframes buzzerPulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 40px currentColor;
+  }
+
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 80px currentColor;
+  }
+}
+
+.buzzer-ready {
+  animation: buzzerPulse 2s ease-in-out infinite;
+}
+
+@keyframes buzzerRipple {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.buzzer-ripple {
+  animation: buzzerRipple 1.5s ease-out infinite;
+}
+
+/* ─── Shake ─── */
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-8px);
+  }
+
+  40% {
+    transform: translateX(8px);
+  }
+
+  60% {
+    transform: translateX(-6px);
+  }
+
+  80% {
+    transform: translateX(6px);
+  }
+}
+
+.shake {
+  animation: shake 0.4s ease;
+}
+
+/* ─── Confetti ─── */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10px) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(110vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+.confetti-particle {
+  animation: confetti-fall var(--duration, 2s) ease-in var(--delay, 0s) infinite;
+}
+
+/* ─── Fade / scale animations ─── */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.fade-in-scale {
+  animation: fadeInScale 0.3s ease-out forwards;
+}
+
+/* ─── Logo spin ─── */
+@keyframes logoSpin {
+
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+
+  25% {
+    transform: rotate(-4deg) scale(1.03);
+  }
+
+  75% {
+    transform: rotate(4deg) scale(1.03);
+  }
+}
+
+.logo-spin {
+  animation: logoSpin 5s ease-in-out infinite;
+}
+
+/* ─── Score badge ─── */
+.score-badge {
+  border-radius: 9999px;
+  font-weight: 900;
+  font-size: 1.5rem;
+  width: 4rem;
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 24px currentColor;
+}
+
+/* ─── Team borders ─── */
+.team-orange-border {
+  border-color: var(--team-orange);
+  box-shadow: 0 0 16px rgba(249, 115, 22, 0.35);
+}
+
+.team-green-border {
+  border-color: var(--team-green);
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.35);
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+/* ─── Buttons ─── */
+.btn-primary {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 55%, #ec4899 100%);
+  box-shadow: 0 6px 28px rgba(168, 85, 247, 0.50);
+  color: #fff;
+  font-weight: 900;
+  border: none;
+  border-radius: 1rem;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.btn-primary:hover {
+  transform: scale(1.03);
+  box-shadow: 0 10px 40px rgba(168, 85, 247, 0.70);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-ghost {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-weight: 700;
+  border-radius: 1rem;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.btn-ghost:hover {
+  background: var(--surface-hover);
+  transform: scale(1.02);
+}
+
+.btn-ghost:active {
+  transform: scale(0.98);
+}
+
+.btn-orange {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  box-shadow: 0 3px 14px rgba(249, 115, 22, 0.40);
+  color: #fff;
+  font-weight: 900;
+  border: none;
+  border-radius: 1rem;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.btn-orange:hover {
+  transform: scale(1.03);
+}
+
+.btn-orange:active {
+  transform: scale(0.97);
+}
+
+.btn-green {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  box-shadow: 0 3px 14px rgba(34, 197, 94, 0.40);
+  color: #fff;
+  font-weight: 900;
+  border: none;
+  border-radius: 1rem;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.btn-green:hover {
+  transform: scale(1.03);
+}
+
+.btn-green:active {
+  transform: scale(0.97);
+}
+
+/* ─── Inputs ─── */
+.input-field {
+  width: 100%;
+  background: var(--input-bg);
+  border: 2px solid var(--input-border);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: var(--input-text);
+  font-weight: 700;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s, background 0.3s;
+  direction: rtl;
+  text-align: right;
+  font-family: 'Cairo', sans-serif;
+  box-sizing: border-box;
+}
+
+.input-field::placeholder {
+  color: var(--input-placeholder);
+}
+
+.input-field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);
+}
+
+/* Select element specific styling */
+select.input-field {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a855f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: left 0.75rem center;
+  background-size: 1.5rem;
+  padding-left: 2.5rem;
+}
+
+/* Select options styling */
+select.input-field option {
+  background: var(--surface);
+  color: var(--text-1);
+  font-weight: 700;
+  font-family: 'Cairo', sans-serif;
+  padding: 0.5rem;
+}
+
+/* Dark theme select options */
+[data-theme="dark"] select.input-field option {
+  background: var(--surface);
+  color: var(--text-1);
+}
+
+/* ─── Modal overlay ─── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+[data-theme="light"] .modal-overlay {
+  background: rgba(60, 20, 120, 0.35);
+}
+
+/* ─── GM panel section headers ─── */
+.gm-section {
+  border-radius: 0.875rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.gm-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 0.875rem;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--text-2);
+  transition: background 0.15s;
+}
+
+.gm-section-header:hover {
+  background: var(--surface-hover);
+}
+
+.gm-section-body {
+  padding: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+/* ─── Player card ─── */
+.player-card {
+  border-radius: 0.875rem;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  padding: 0.625rem 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.player-card.flex-col {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.player-card:hover {
+  background: var(--surface-hover);
+}
+
+.player-card.orange {
+  border-color: rgba(249, 115, 22, 0.45);
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.12);
+}
+
+.player-card.green {
+  border-color: rgba(34, 197, 94, 0.45);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.12);
+}
+
+.player-card.master {
+  border-color: rgba(168, 85, 247, 0.45);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.12);
+}
