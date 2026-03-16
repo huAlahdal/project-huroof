@@ -217,15 +217,39 @@ export default function GamePage() {
 
     // Sound effects
     const playBuzzerSound = useCallback(() => {
-        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGGS57OihUBELTKXh8bllHAU2jdXyzn0vBSh+zPLaizsKE1y06+qnVRQLRp/g8r5sIQYugM3y2Ik2CBdiu+zooVARC0yl4fG5ZRwFN43V8s5+LwUofszy2os7ChNctOvqp1UVC0af4PK+bCEGLoHN8tmJNggXYrvs6KFQEQtMpeHxuWUcBTaN1fLOfi8FKH7M8tqLOwoTXLTr6qdVFQtGn+DyvmwhBi6Bzf');
-        audio.volume = 0.3;
-        audio.play().catch(() => {});
+        try {
+            const audio = new Audio('/buzzer.mp3');
+            audio.volume = 0.3;
+            
+            // Handle errors when file is not found or cannot be played
+            audio.addEventListener('error', () => {
+                console.log('Buzzer sound file not found or cannot be played');
+            });
+            
+            audio.play().catch((error) => {
+                console.log('Failed to play buzzer sound:', error);
+            });
+        } catch (error) {
+            console.log('Error creating buzzer audio:', error);
+        }
     }, []);
 
     const playTimerEndSound = useCallback(() => {
-        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGGS57OihUBELTKXh8bllHAU2jdXyzn0vBSh+zPLaizsKE1y06+qnVRQLRp/g8r5sIQYugM3y2Ik2CBdiu+zooVARC0yl4fG5ZRwFN43V8s5+LwUofszy2os7ChNctOvqp1UVC0af4PK+bCEGLoHN8tmJNggXYrvs6KFQEQtMpeHxuWUcBTaN1fLOfi8FKH7M8tqLOwoTXLTr6qdVFQtGn+DyvmwhBi6Bzf');
-        audio.volume = 0.5;
-        audio.play().catch(() => {});
+        try {
+            const audio = new Audio('/timer-end.mp3');
+            audio.volume = 0.5;
+            
+            // Handle errors when file is not found or cannot be played
+            audio.addEventListener('error', () => {
+                console.log('Timer end sound file not found or cannot be played');
+            });
+            
+            audio.play().catch((error) => {
+                console.log('Failed to play timer end sound:', error);
+            });
+        } catch (error) {
+            console.log('Error creating timer end audio:', error);
+        }
     }, []);
 
     // ─── Connection Setup ────────────────────────────────────
