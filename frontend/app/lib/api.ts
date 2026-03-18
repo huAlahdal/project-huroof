@@ -16,7 +16,6 @@ const getHostname = () => {
   return window.location.hostname;
 };
 
-<<<<<<< HEAD
 // Check if we're in production (deployed on huroof.ddns.net)
 const isProduction = () => {
   return !isServer && window.location.hostname === 'huroof.ddns.net';
