@@ -49,7 +49,8 @@ builder.Services.AddSingleton<QuestionStore>();
 
 // Resolve an absolute path for the SQLite DB so it works correctly on any
 // deployed environment regardless of the process working directory.
-var dataDir = Path.Combine(builder.Environment.ContentRootPath, "Data");
+// AppContext.BaseDirectory is the most reliable anchor under IIS.
+var dataDir = Path.Combine(AppContext.BaseDirectory, "Data");
 Directory.CreateDirectory(dataDir); // no-op if already exists
 var dbPath = Path.Combine(dataDir, "huroof.db");
 
