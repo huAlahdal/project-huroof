@@ -8,11 +8,10 @@
 
   <!-- Ensure Data folder files are copied to publish output -->
   <ItemGroup>
-    <Content Update="Data\**\*" Exclude="Data\**\*.cs">
+    <Content Update="Data\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <!-- Never publish .cs source files -->
     <Content Remove="Data\**\*.cs" />
   </ItemGroup>
 
