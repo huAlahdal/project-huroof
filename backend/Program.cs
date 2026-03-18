@@ -47,10 +47,16 @@ builder.Services.AddSignalR(options =>
 builder.Services.AddSingleton<SessionManager>();
 builder.Services.AddSingleton<QuestionStore>();
 
+// Resolve an absolute path for the SQLite DB so it works correctly on any
+// deployed environment regardless of the process working directory.
+var dataDir = Path.Combine(builder.Environment.ContentRootPath, "Data");
+Directory.CreateDirectory(dataDir); // no-op if already exists
+var dbPath = Path.Combine(dataDir, "huroof.db");
+
 // Add Entity Framework with optimizations
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    options.UseSqlite("Data Source=huroof.db");
+    options.UseSqlite($"Data Source={dbPath}");
     
     // Performance optimizations
     options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking); // Default to no tracking
