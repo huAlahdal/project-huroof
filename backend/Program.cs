@@ -64,13 +64,20 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.SetIsOriginAllowed(origin => 
-            origin.StartsWith("http://localhost") || 
-                origin.StartsWith("http://0.0.0.0") ||
-                origin.StartsWith("http://192.168.") ||
-                origin.StartsWith("http://10.") ||
-                origin.StartsWith("http://172.") ||
-                origin.StartsWith("http://127.0.0.1"))
+        policy.SetIsOriginAllowed(origin =>
+        {
+            if (!Uri.TryCreate(origin, UriKind.Absolute, out var originUri))
+                return false;
+
+            var host = originUri.Host;
+            return host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                   host.Equals("0.0.0.0", StringComparison.OrdinalIgnoreCase) ||
+                   host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+                   host.Equals("huroof.ddns.net", StringComparison.OrdinalIgnoreCase) ||
+                   host.StartsWith("192.168.", StringComparison.OrdinalIgnoreCase) ||
+                   host.StartsWith("10.", StringComparison.OrdinalIgnoreCase) ||
+                   host.StartsWith("172.", StringComparison.OrdinalIgnoreCase);
+        })
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
