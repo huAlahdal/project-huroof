@@ -5,6 +5,7 @@ using Backend.Data;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.AspNetCore.Diagnostics;
 using System.IO.Compression;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -85,6 +86,28 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var exceptionFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+
+        await context.Response.WriteAsJsonAsync(new
+        {
+            error = "Internal server error",
+            detail = app.Environment.IsDevelopment() ? exceptionFeature?.Error.Message : null
+        });
+    });
+});
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.Migrate();
+}
 
 // Use response compression
 app.UseResponseCompression();
