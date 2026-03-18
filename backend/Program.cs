@@ -119,10 +119,13 @@ app.UseExceptionHandler(errorApp =>
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         context.Response.ContentType = "application/json";
 
+        // Always include detail so deployment issues are diagnosable.
+        // Remove or gate on IsDevelopment() once stable.
         await context.Response.WriteAsJsonAsync(new
         {
             error = "Internal server error",
-            detail = app.Environment.IsDevelopment() ? exceptionFeature?.Error.Message : null
+            detail = exceptionFeature?.Error?.Message,
+            type = exceptionFeature?.Error?.GetType().Name
         });
     });
 });
