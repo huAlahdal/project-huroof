@@ -108,3 +108,9 @@ temp/
 # Deployment specific
 .vercel
 .netlify
+
+# Ignore backend publish outputs
+backend/publish/
+# Ignore frontend build and public outputs
+frontend/build/
+frontend/public/
