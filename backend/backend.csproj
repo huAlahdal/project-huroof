@@ -6,9 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <!-- Include Data folder files in publish output -->
+  <!-- Ensure Data folder files are copied to publish output -->
   <ItemGroup>
-    <Content Include="Data\**\*">
+    <Content Update="Data\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
