@@ -1,14 +1,13 @@
 import * as signalR from "@microsoft/signalr";
 import { MessagePackHubProtocol } from "@microsoft/signalr-protocol-msgpack";
+import { SIGNALR_URL } from './api';
 
 let connection: signalR.HubConnection | null = null;
 
 export function getConnection(): signalR.HubConnection {
   if (!connection) {
-    // Use absolute URL for SignalR connection
-    const backendUrl = typeof window !== 'undefined' 
-      ? `${window.location.protocol}//${window.location.hostname}:5062/gamehub`
-      : 'http://localhost:5062/gamehub';
+    // Use the configured SIGNALR_URL
+    const backendUrl = SIGNALR_URL;
     
     connection = new signalR.HubConnectionBuilder()
       .withUrl(backendUrl)
