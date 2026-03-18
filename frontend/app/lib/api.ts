@@ -16,6 +16,7 @@ const getHostname = () => {
   return window.location.hostname;
 };
 
+<<<<<<< HEAD
 // Check if we're in production (deployed on huroof.ddns.net)
 const isProduction = () => {
   return !isServer && window.location.hostname === 'huroof.ddns.net';
@@ -33,3 +34,9 @@ export const SIGNALR_URL = isBehindProxy()
   : isProduction()
     ? 'http://huroof.ddns.net:5062/gamehub'
     : `http://${getHostname()}:5062/gamehub`;
+=======
+export const API_BASE = `http://${getHostname()}:5062`;
+
+// For SignalR WebSocket connection
+export const SIGNALR_URL = `http://${getHostname()}:5062/gamehub`;
+>>>>>>> parent of ec6266c (Merge branch 'master' of https://github.com/huAlahdal/project-huroof)

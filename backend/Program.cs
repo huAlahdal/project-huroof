@@ -70,9 +70,7 @@ builder.Services.AddCors(options =>
                 origin.StartsWith("http://192.168.") ||
                 origin.StartsWith("http://10.") ||
                 origin.StartsWith("http://172.") ||
-                origin.StartsWith("http://127.0.0.1") ||
-                origin.StartsWith("http://huroof.ddns.net") ||
-                origin.StartsWith("https://huroof.ddns.net"))
+                origin.StartsWith("http://127.0.0.1"))
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
