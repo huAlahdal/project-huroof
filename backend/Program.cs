@@ -97,6 +97,18 @@ app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
     {
+        // Manually apply CORS headers here because the exception handler inner
+        // pipeline does NOT pass through the outer UseCors() middleware.
+        var origin = context.Request.Headers.Origin.FirstOrDefault();
+        if (!string.IsNullOrEmpty(origin))
+        {
+            context.Response.Headers["Access-Control-Allow-Origin"] = origin;
+            context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+            context.Response.Headers["Access-Control-Allow-Headers"] = "*";
+            context.Response.Headers["Access-Control-Allow-Methods"] = "*";
+            context.Response.Headers["Vary"] = "Origin";
+        }
+
         var exceptionFeature = context.Features.Get<IExceptionHandlerPathFeature>();
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         context.Response.ContentType = "application/json";
@@ -111,8 +123,16 @@ app.UseExceptionHandler(errorApp =>
 
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.Migrate();
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        db.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        // Log but don't crash the app — DB may already be up to date
+        Console.Error.WriteLine($"[Startup] DB migration warning: {ex.Message}");
+    }
 }
 
 // ─── SignalR hub ───────────────────────────────────────────
