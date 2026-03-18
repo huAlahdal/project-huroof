@@ -236,50 +236,70 @@ app.MapGet("/api/admin/overview", (QuestionStore store, SessionManager sessions,
 // ─── Public: Questions (for game) ─────────────────────────
 
 // GET questions with filtering (public endpoint for game use)
-app.MapGet("/api/questions", (QuestionStore store, HttpRequest req) =>
+app.MapGet("/api/questions", async (ApplicationDbContext db, HttpRequest req) =>
 {
-    var all = store.GetAll();
-    var letter = req.Query["letter"].ToString();
-    var category = req.Query["category"].ToString();
+    var letter    = req.Query["letter"].ToString();
+    var category  = req.Query["category"].ToString();
     var difficulty = req.Query["difficulty"].ToString();
-    var search = req.Query["search"].ToString();
-    
-    IEnumerable<QuestionItem> filtered = all;
-    
+    var search    = req.Query["search"].ToString();
+
+    var query = db.Questions.AsNoTracking().AsQueryable();
+
     if (!string.IsNullOrWhiteSpace(letter))
-        filtered = filtered.Where(q => q.Letter.Equals(letter, StringComparison.OrdinalIgnoreCase));
-    
+        query = query.Where(q => q.Letter.ToLower() == letter.ToLower());
+
     if (!string.IsNullOrWhiteSpace(category))
-        filtered = filtered.Where(q => q.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
-    
+        query = query.Where(q => q.Category.ToLower() == category.ToLower());
+
     if (!string.IsNullOrWhiteSpace(difficulty))
-        filtered = filtered.Where(q => q.Difficulty.Equals(difficulty, StringComparison.OrdinalIgnoreCase));
-    
+        query = query.Where(q => q.Difficulty.ToLower() == difficulty.ToLower());
+
     if (!string.IsNullOrWhiteSpace(search))
     {
-        var searchLower = search.ToLower();
-        filtered = filtered.Where(q => 
-            q.Question.ToLower().Contains(searchLower) || 
-            q.Answer.ToLower().Contains(searchLower));
+        var s = search.ToLower();
+        query = query.Where(q => q.QuestionText.ToLower().Contains(s) || q.Answer.ToLower().Contains(s));
     }
-    
-    return Results.Ok(filtered);
+
+    var results = await query
+        .OrderBy(q => q.Letter)
+        .Select(q => new
+        {
+            q.Id,
+            q.Letter,
+            Question = q.QuestionText,
+            q.Answer,
+            q.Category,
+            q.Difficulty
+        })
+        .ToListAsync();
+
+    return Results.Ok(results);
 });
 
 // GET random question for a letter (public endpoint)
-app.MapGet("/api/questions/random", (QuestionStore store, HttpRequest req) =>
+app.MapGet("/api/questions/random", async (ApplicationDbContext db, HttpRequest req) =>
 {
     var letter = req.Query["letter"].ToString();
     if (string.IsNullOrWhiteSpace(letter))
         return Results.BadRequest(new { error = "Letter parameter required" });
-    
-    var questions = store.GetAll()
-        .Where(q => q.Letter.Equals(letter, StringComparison.OrdinalIgnoreCase))
-        .ToList();
-    
+
+    var questions = await db.Questions
+        .AsNoTracking()
+        .Where(q => q.Letter.ToLower() == letter.ToLower())
+        .Select(q => new
+        {
+            q.Id,
+            q.Letter,
+            Question = q.QuestionText,
+            q.Answer,
+            q.Category,
+            q.Difficulty
+        })
+        .ToListAsync();
+
     if (questions.Count == 0)
         return Results.NotFound(new { error = "No questions found for this letter" });
-    
+
     var random = questions[Random.Shared.Next(questions.Count)];
     return Results.Ok(random);
 });
