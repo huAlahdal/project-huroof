@@ -87,6 +87,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Use response compression
+app.UseResponseCompression();
+
+// Apply CORS headers for all responses, including error responses
+app.UseCors();
+
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
@@ -108,11 +114,6 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     db.Database.Migrate();
 }
-
-// Use response compression
-app.UseResponseCompression();
-
-app.UseCors();
 
 // ─── SignalR hub ───────────────────────────────────────────
 app.MapHub<GameHub>("/gamehub");
