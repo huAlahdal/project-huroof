@@ -11,13 +11,6 @@ export interface HexCell {
 
 export type GridLayout = HexCell[][];
 
-// 25 Arabic letters
-export const ARABIC_LETTERS = [
-    "أ", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ر", "ز",
-    "س", "ش", "ص", "ط", "ع", "غ", "ف", "ق", "ك", "ل",
-    "م", "ن", "ه", "و", "ي",
-];
-
 // ─── Hex SVG Math ───────────────────────────────────────────
 
 /**
@@ -91,61 +84,4 @@ export function buildBorderHexes(
     for (let c = -1; c < gridSize; c++) out.push({ row: -1, col: c, team: "green" });
     for (let c = -1; c < gridSize; c++) out.push({ row: gridSize, col: c, team: "green" });
     return out;
-}
-
-// ─── Win Check (for display) ────────────────────────────────
-
-export function checkWin(
-    grid: GridLayout,
-    team: "orange" | "green"
-): boolean {
-    const gridSize = grid.length;
-    if (gridSize === 0) return false;
-
-    if (team === "orange") {
-        const starts = grid.flatMap((row) =>
-            row.filter((c) => c.col === 0 && c.owner === "orange")
-        );
-        return bfsReach(grid, starts, "orange", (c) => c.col === gridSize - 1, gridSize);
-    } else {
-        const starts = grid[0].filter((c) => c.owner === "green");
-        return bfsReach(grid, starts, "green", (c) => c.row === gridSize - 1, gridSize);
-    }
-}
-
-function bfsReach(
-    grid: GridLayout,
-    starts: HexCell[],
-    team: string,
-    goal: (c: HexCell) => boolean,
-    gridSize: number
-): boolean {
-    const visited = new Set<string>();
-    const queue: HexCell[] = [...starts];
-    starts.forEach((c) => visited.add(c.id));
-
-    while (queue.length > 0) {
-        const current = queue.shift()!;
-        if (goal(current)) return true;
-
-        for (const [nr, nc] of getNeighbors(current.row, current.col, gridSize)) {
-            const neighbor = grid[nr][nc];
-            if (!visited.has(neighbor.id) && neighbor.owner === team) {
-                visited.add(neighbor.id);
-                queue.push(neighbor);
-            }
-        }
-    }
-    return false;
-}
-
-function getNeighbors(row: number, col: number, gridSize: number): [number, number][] {
-    const isOddRow = row % 2 === 1;
-    const directions: [number, number][] = isOddRow
-        ? [[-1, 0], [-1, 1], [0, -1], [0, 1], [1, 0], [1, 1]]
-        : [[-1, -1], [-1, 0], [0, -1], [0, 1], [1, -1], [1, 0]];
-
-    return directions
-        .map(([dr, dc]) => [row + dr, col + dc] as [number, number])
-        .filter(([r, c]) => r >= 0 && r < gridSize && c >= 0 && c < gridSize);
 }

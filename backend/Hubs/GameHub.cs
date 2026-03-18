@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.Authorization;
 using Backend.Models;
 using Backend.Services;
+using System.Security.Claims;
 
 namespace Backend.Hubs;
 
+[Authorize]
 public class GameHub : Hub
 {
     private readonly SessionManager _sessions;
@@ -13,24 +16,59 @@ public class GameHub : Hub
         _sessions = sessions;
     }
 
+    // ─── Auth Helpers ───────────────────────────────────────
+
+    private string? GetUserId() =>
+        Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+    private string? GetUserInGameName() =>
+        Context.User?.FindFirst("inGameName")?.Value;
+
     // ─── Session Lifecycle ──────────────────────────────────
 
-    public async Task<object> CreateSession(string password, int gridSize, int totalRounds)
+    public async Task<object> CreateSession(string? password, int gridSize, int totalRounds)
     {
-        var session = _sessions.CreateSession(password, gridSize, totalRounds);
+        var userId = GetUserId();
+        var session = _sessions.CreateSession(password, gridSize, totalRounds, userId);
         return new { sessionId = session.Id };
     }
 
-    public async Task<object> JoinSession(string sessionId, string password, string playerName)
+    /// <summary>Check if a session exists and whether it requires a password</summary>
+    public object CheckSession(string sessionId)
     {
-        if (!_sessions.ValidatePassword(sessionId, password))
-            return new { error = "Invalid session ID or password" };
+        var session = _sessions.GetSession(sessionId);
+        if (session == null)
+            return new { exists = false };
 
+        return new
+        {
+            exists = true,
+            requiresPassword = _sessions.HasPassword(sessionId),
+            playerCount = session.Players.Count,
+            phase = session.Phase.ToString().ToLowerInvariant()
+        };
+    }
+
+    public async Task<object> JoinSession(string sessionId, string? password, string playerName)
+    {
         var session = _sessions.GetSession(sessionId);
         if (session == null)
             return new { error = "Session not found" };
 
-        var player = _sessions.AddPlayer(sessionId, Context.ConnectionId, playerName);
+        var userId = GetUserId();
+        
+        // If user is already in the session, they don't need a password to rejoin
+        bool isRejoining = false;
+        if (!string.IsNullOrEmpty(userId) && session.Players.Any(p => p.UserId == userId))
+        {
+            isRejoining = true;
+        }
+
+        if (!isRejoining && !_sessions.ValidatePassword(sessionId, password))
+            return new { error = "Invalid session ID or password" };
+
+        var name = string.IsNullOrWhiteSpace(playerName) ? (GetUserInGameName() ?? "لاعب") : playerName;
+        var player = _sessions.AddPlayer(sessionId, Context.ConnectionId, name, userId);
         if (player == null)
             return new { error = "Failed to join session" };
 
@@ -58,23 +96,13 @@ public class GameHub : Hub
     {
         var sessionId = _sessions.GetSessionForConnection(Context.ConnectionId);
         if (sessionId == null)
-        {
-            Console.WriteLine("[GetLobbyState] Connection not in any session");
             return new { error = "Not in a session" };
-        }
 
         var session = _sessions.GetSession(sessionId);
         if (session == null)
-        {
-            Console.WriteLine($"[GetLobbyState] Session {sessionId} not found");
             return new { error = "Session not found" };
-        }
 
-        Console.WriteLine($"[GetLobbyState] Session {sessionId} has {session.Players.Count} players");
-        var lobbyDto = SessionManager.ToLobbyDto(session);
-        Console.WriteLine($"[GetLobbyState] Lobby DTO has {lobbyDto.Players.Count} players");
-        
-        return lobbyDto;
+        return SessionManager.ToLobbyDto(session);
     }
 
     public async Task<object> UpdateMyName(string playerName)
@@ -179,19 +207,7 @@ public class GameHub : Hub
         var success = _sessions.SetPlayerRole(sessionId, Context.ConnectionId, playerRole);
         if (!success) return new { error = "Cannot set role (game master slot taken)" };
 
-        var session = _sessions.GetSession(sessionId)!;
-
-        if (session.Phase == GamePhase.Lobby)
-        {
-            var lobbyState = SessionManager.ToLobbyDto(session);
-            await Clients.Group(sessionId).SendAsync("LobbyUpdated", lobbyState);
-        }
-        else
-        {
-            var gameState = SessionManager.ToStateDto(session);
-            await Clients.Group(sessionId).SendAsync("GameStateUpdated", gameState);
-        }
-
+        await BroadcastLobbyOrGame(sessionId);
         return new { success = true };
     }
 
@@ -307,12 +323,6 @@ public class GameHub : Hub
         return new { success = true };
     }
 
-    public async Task RefreshQuestion()
-    {
-        // This is handled client-side (question bank is in frontend)
-        // GM picks a new question and sends it via SetQuestion
-    }
-
     public async Task<object> NextRound()
     {
         var sessionId = _sessions.GetSessionForConnection(Context.ConnectionId);
@@ -415,23 +425,10 @@ public class GameHub : Hub
     {
         var sessionId = _sessions.GetSessionForConnection(Context.ConnectionId);
         if (sessionId == null) return;
-
-        var session = _sessions.GetSession(sessionId);
-        if (session == null) return;
-        if (!IsGameMaster(sessionId)) return; // Only game master can update settings
+        if (!IsGameMaster(sessionId)) return;
 
         _sessions.UpdateSettings(sessionId, gridSize, totalRounds);
-
-        session = _sessions.GetSession(sessionId)!;
-        if (session.Phase == GamePhase.Lobby)
-        {
-            var lobbyState = SessionManager.ToLobbyDto(session);
-            await Clients.Group(sessionId).SendAsync("LobbyUpdated", lobbyState);
-        }
-        else
-        {
-            await BroadcastState(sessionId);
-        }
+        await BroadcastLobbyOrGame(sessionId);
     }
 
     public async Task<object> UpdateMaxPlayersPerTeam(int maxPlayers)
@@ -443,17 +440,7 @@ public class GameHub : Hub
         var success = _sessions.UpdateMaxPlayersPerTeam(sessionId, maxPlayers);
         if (!success) return new { error = "Failed to update max players (invalid value or teams exceed limit)" };
 
-        var session = _sessions.GetSession(sessionId)!;
-        if (session.Phase == GamePhase.Lobby)
-        {
-            var lobbyState = SessionManager.ToLobbyDto(session);
-            await Clients.Group(sessionId).SendAsync("LobbyUpdated", lobbyState);
-        }
-        else
-        {
-            await BroadcastState(sessionId);
-        }
-
+        await BroadcastLobbyOrGame(sessionId);
         return new { success = true };
     }
 
@@ -469,20 +456,7 @@ public class GameHub : Hub
         var success = _sessions.SwitchPlayerTeam(sessionId, playerId, role);
         if (!success) return new { error = "Failed to switch team (team might be full)" };
 
-        var session = _sessions.GetSession(sessionId);
-        if (session != null)
-        {
-            if (session.Phase == GamePhase.Lobby)
-            {
-                var lobbyState = SessionManager.ToLobbyDto(session);
-                await Clients.Group(sessionId).SendAsync("LobbyUpdated", lobbyState);
-            }
-            else
-            {
-                await BroadcastState(sessionId);
-            }
-        }
-
+        await BroadcastLobbyOrGame(sessionId);
         return new { success = true };
     }
 
@@ -498,20 +472,7 @@ public class GameHub : Hub
         var success = _sessions.MoveSpectatorToTeam(sessionId, playerId, role);
         if (!success) return new { error = "Failed to move player (team might be full)" };
 
-        var session = _sessions.GetSession(sessionId);
-        if (session != null)
-        {
-            if (session.Phase == GamePhase.Lobby)
-            {
-                var lobbyState = SessionManager.ToLobbyDto(session);
-                await Clients.Group(sessionId).SendAsync("LobbyUpdated", lobbyState);
-            }
-            else
-            {
-                await BroadcastState(sessionId);
-            }
-        }
-
+        await BroadcastLobbyOrGame(sessionId);
         return new { success = true };
     }
 
@@ -522,30 +483,12 @@ public class GameHub : Hub
         var sessionId = _sessions.GetSessionForConnection(Context.ConnectionId);
         if (sessionId != null)
         {
-            var session = _sessions.GetSession(sessionId);
-            var wasGameMaster = session?.Players.Any(p => p.ConnectionId == Context.ConnectionId && p.Role == PlayerRole.GameMaster) ?? false;
-            
-            var sessionEnded = _sessions.RemovePlayer(sessionId, Context.ConnectionId);
+            _sessions.RemovePlayer(sessionId, Context.ConnectionId);
             _sessions.UntrackConnection(Context.ConnectionId);
 
-            if (sessionEnded)
-            {
-                // Game master left - session ended
-                await Clients.Group(sessionId).SendAsync("SessionEnded");
-            }
-            else if (session != null)
-            {
-                // Regular player left
-                if (session.Phase == GamePhase.Lobby)
-                {
-                    var lobbyState = SessionManager.ToLobbyDto(session);
-                    await Clients.Group(sessionId).SendAsync("LobbyUpdated", lobbyState);
-                }
-                else
-                {
-                    await BroadcastState(sessionId);
-                }
-            }
+            // After a disconnect, broadcast the updated state so remaining clients see
+            // the player as offline. The session enters a 30-second grace period for reconnection.
+            await BroadcastLobbyOrGame(sessionId);
         }
 
         await base.OnDisconnectedAsync(exception);

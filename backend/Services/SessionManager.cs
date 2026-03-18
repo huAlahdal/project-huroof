@@ -1,6 +1,4 @@
 using System.Collections.Concurrent;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Backend.Models;
 using Backend.Data;
@@ -15,12 +13,13 @@ public class SessionManager
     private static readonly Lock _lock = new();
     private readonly Timer _cleanupTimer;
     private readonly ConcurrentDictionary<string, PersistedSession> _persistedCache = new();
+    private readonly ConcurrentDictionary<string, CancellationTokenSource> _pendingDeletions = new();
 
-    // 25 Arabic letters used in the game
+    // 28 Arabic letters used in the game
     private static readonly string[] ArabicLetters =
     [
-        "أ", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ر", "ز",
-        "س", "ش", "ص", "ط", "ع", "غ", "ف", "ق", "ك", "ل",
+        "أ", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ذ", "ر", "ز",
+        "س", "ش", "ص", "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ك", "ل",
         "م", "ن", "ه", "و", "ي"
     ];
 
@@ -39,12 +38,13 @@ public class SessionManager
 
     // ─── Session Lifecycle ──────────────────────────────────
 
-    public GameSession CreateSession(string password, int gridSize, int totalRounds)
+    public GameSession CreateSession(string? password, int gridSize, int totalRounds, string? createdByUserId = null)
     {
         var session = new GameSession
         {
             Id = GenerateSessionId(),
-            PasswordHash = HashPassword(password),
+            PasswordHash = string.IsNullOrWhiteSpace(password) ? null : HashPassword(password),
+            CreatedByUserId = createdByUserId,
             GridSize = Math.Clamp(gridSize, 4, 6),
             TotalRounds = Math.Clamp(totalRounds, 2, 6),
             MaxPlayersPerTeam = 4,
@@ -82,16 +82,67 @@ public class SessionManager
         return _sessions.Values;
     }
 
-    public bool ValidatePassword(string sessionId, string password)
+    /// <summary>Find the first active session containing a player with the given userId (registered user or guest ID).</summary>
+    public (GameSession session, Player player)? FindSessionByUserId(string userId)
+    {
+        foreach (var session in _sessions.Values)
+        {
+            var player = session.Players.FirstOrDefault(p => p.UserId == userId);
+            if (player != null)
+                return (session, player);
+        }
+        return null;
+    }
+
+    /// <summary>Remove a player from a session by userId. Returns true if found and removed.</summary>
+    public bool RemovePlayerByUserId(string sessionId, string userId)
     {
         var session = GetSession(sessionId);
         if (session == null) return false;
-        return session.PasswordHash == HashPassword(password);
+
+        lock (_lock)
+        {
+            var player = session.Players.FirstOrDefault(p => p.UserId == userId);
+            if (player == null) return false;
+
+            _connectionToSession.TryRemove(player.ConnectionId, out _);
+
+            // Keep as placeholder (empty connection) so they can rejoin with same role,
+            // or just remove entirely for a clean leave
+            session.Players.Remove(player);
+
+            // Reassign host if needed
+            if (session.HostPlayerId == player.Id && session.Players.Count > 0)
+            {
+                var newHost = session.Players.FirstOrDefault(p => !string.IsNullOrEmpty(p.ConnectionId))
+                              ?? session.Players.FirstOrDefault();
+                if (newHost != null) session.HostPlayerId = newHost.Id;
+            }
+
+            IncrementVersionAndSave(session);
+            return true;
+        }
+    }
+
+    public bool HasPassword(string sessionId)
+    {
+        var session = GetSession(sessionId);
+        return session?.PasswordHash != null;
+    }
+
+    public bool ValidatePassword(string sessionId, string? password)
+    {
+        var session = GetSession(sessionId);
+        if (session == null) return false;
+        // No password set → anyone with the ID can join
+        if (session.PasswordHash == null) return true;
+        if (string.IsNullOrEmpty(password)) return false;
+        return BCrypt.Net.BCrypt.Verify(password, session.PasswordHash);
     }
 
     // ─── Player Management ──────────────────────────────────
 
-    public Player? AddPlayer(string sessionId, string connectionId, string name)
+    public Player? AddPlayer(string sessionId, string connectionId, string name, string? userId = null)
     {
         var session = GetSession(sessionId);
         if (session == null) return null;
@@ -109,7 +160,32 @@ public class SessionManager
                 return existing;
             }
 
-            // Check if player was previously in the session (by name)
+            // Check if user is already in this session (same userId)
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var existingByUser = session.Players.FirstOrDefault(p => p.UserId == userId);
+                if (existingByUser != null)
+                {
+                    // Cancel any pending deletion since someone is reconnecting
+                    if (_pendingDeletions.TryRemove(sessionId, out var cts))
+                        cts.Cancel();
+
+                    // Clean up old connection 
+                    if (!string.IsNullOrEmpty(existingByUser.ConnectionId))
+                    {
+                        _connectionToSession.TryRemove(existingByUser.ConnectionId, out _);
+                    }
+
+                    // Reassign connection and update name
+                    existingByUser.ConnectionId = connectionId;
+                    existingByUser.Name = normalizedName;
+
+                    IncrementVersionAndSave(session);
+                    return existingByUser;
+                }
+            }
+
+            // Check if player was previously in the session (by name and empty connection)
             var previousPlayer = session.Players.FirstOrDefault(p => 
                 p.Name.Equals(normalizedName, StringComparison.OrdinalIgnoreCase) && 
                 p.ConnectionId == "");
@@ -131,7 +207,8 @@ public class SessionManager
                 Id = playerId,
                 ConnectionId = connectionId,
                 Name = normalizedName,
-                Role = role
+                Role = role,
+                UserId = userId
             };
 
             session.Players.Add(player);
@@ -151,9 +228,10 @@ public class SessionManager
         var session = GetSession(sessionId);
         if (session == null) return false;
 
+        Player? removedPlayer = null;
         lock (_lock)
         {
-            var removedPlayer = session.Players.FirstOrDefault(p => p.ConnectionId == connectionId);
+            removedPlayer = session.Players.FirstOrDefault(p => p.ConnectionId == connectionId);
             if (removedPlayer != null)
             {
                 // Untrack the connection
@@ -168,15 +246,36 @@ public class SessionManager
                 IncrementVersionAndSave(session);
             }
 
-            // Only remove session if all players have disconnected (no connection IDs)
+            // If all players have disconnected, schedule a delayed deletion
+            // to allow page refreshes to reconnect within a grace period
             if (session.Players.All(p => string.IsNullOrEmpty(p.ConnectionId)))
             {
-                _sessions.TryRemove(sessionId, out _);
-                return true; // Session ended
+                ScheduleSessionDeletion(sessionId, delaySeconds: 30);
             }
         }
 
-        return false; // Session still active
+        return removedPlayer != null;
+    }
+
+    private void ScheduleSessionDeletion(string sessionId, int delaySeconds)
+    {
+        // Cancel any existing pending deletion
+        if (_pendingDeletions.TryRemove(sessionId, out var existing))
+            existing.Cancel();
+
+        var cts = new CancellationTokenSource();
+        _pendingDeletions[sessionId] = cts;
+
+        _ = Task.Delay(TimeSpan.FromSeconds(delaySeconds), cts.Token).ContinueWith(t =>
+        {
+            if (t.IsCanceled) return;
+            _pendingDeletions.TryRemove(sessionId, out _);
+            var session = GetSession(sessionId);
+            if (session != null && session.Players.All(p => string.IsNullOrEmpty(p.ConnectionId)))
+            {
+                _sessions.TryRemove(sessionId, out _);
+            }
+        }, TaskScheduler.Default);
     }
 
     public Player? GetPlayerByConnection(string sessionId, string connectionId)
@@ -216,14 +315,14 @@ public class SessionManager
         }
     }
 
-    public bool UpdateSessionPassword(string sessionId, string newPassword)
+    public bool UpdateSessionPassword(string sessionId, string? newPassword)
     {
         var session = GetSession(sessionId);
         if (session == null) return false;
 
         lock (_lock)
         {
-            session.PasswordHash = HashPassword(newPassword ?? "");
+            session.PasswordHash = string.IsNullOrWhiteSpace(newPassword) ? null : HashPassword(newPassword);
             IncrementVersionAndSave(session);
             return true;
         }
@@ -279,14 +378,7 @@ public class SessionManager
         {
             var player = session.Players.FirstOrDefault(p => p.Id == playerId);
             if (player == null || player.Role == PlayerRole.GameMaster) return false;
-
-            // Count players in each team
-            var orangeCount = session.Players.Count(p => p.Role == PlayerRole.TeamOrange);
-            var greenCount = session.Players.Count(p => p.Role == PlayerRole.TeamGreen);
-
-            // Check team balance using configurable max
-            if (newRole == PlayerRole.TeamOrange && orangeCount >= session.MaxPlayersPerTeam) return false;
-            if (newRole == PlayerRole.TeamGreen && greenCount >= session.MaxPlayersPerTeam) return false;
+            if (!CanJoinTeam(session, newRole)) return false;
 
             player.Role = newRole;
             IncrementVersionAndSave(session);
@@ -303,19 +395,20 @@ public class SessionManager
         {
             var player = session.Players.FirstOrDefault(p => p.Id == playerId);
             if (player == null || player.Role != PlayerRole.Spectator) return false;
-
-            // Count players in each team
-            var orangeCount = session.Players.Count(p => p.Role == PlayerRole.TeamOrange);
-            var greenCount = session.Players.Count(p => p.Role == PlayerRole.TeamGreen);
-
-            // Check team balance using configurable max
-            if (teamRole == PlayerRole.TeamOrange && orangeCount >= session.MaxPlayersPerTeam) return false;
-            if (teamRole == PlayerRole.TeamGreen && greenCount >= session.MaxPlayersPerTeam) return false;
+            if (!CanJoinTeam(session, teamRole)) return false;
 
             player.Role = teamRole;
             IncrementVersionAndSave(session);
             return true;
         }
+    }
+
+    /// <summary>Check if a team role can accept another player without exceeding the limit.</summary>
+    private static bool CanJoinTeam(GameSession session, PlayerRole role)
+    {
+        if (role != PlayerRole.TeamOrange && role != PlayerRole.TeamGreen) return true;
+        var count = session.Players.Count(p => p.Role == role);
+        return count < session.MaxPlayersPerTeam;
     }
 
     public bool RemovePlayerById(string sessionId, string playerId)
@@ -457,11 +550,11 @@ public class SessionManager
 
         lock (_lock)
         {
-            var cell = session.Grid.SelectMany(r => r).FirstOrDefault(c => c.Id == cellId);
+            var cell = FlatGrid(session).FirstOrDefault(c => c.Id == cellId);
             if (cell == null || cell.Owner != null) return null;
 
             // Clear previous selection
-            foreach (var c in session.Grid.SelectMany(r => r))
+            foreach (var c in FlatGrid(session))
                 c.IsSelected = false;
 
             cell.IsSelected = true;
@@ -480,12 +573,12 @@ public class SessionManager
 
         lock (_lock)
         {
-            var available = session.Grid.SelectMany(r => r).Where(c => c.Owner == null).ToList();
+            var available = FlatGrid(session).Where(c => c.Owner == null).ToList();
             if (available.Count == 0) return null;
 
             var cell = available[Random.Shared.Next(available.Count)];
 
-            foreach (var c in session.Grid.SelectMany(r => r))
+            foreach (var c in FlatGrid(session))
                 c.IsSelected = false;
 
             cell.IsSelected = true;
@@ -537,11 +630,11 @@ public class SessionManager
 
         lock (_lock)
         {
-            var cell = session.Grid.SelectMany(r => r).FirstOrDefault(c => c.Id == session.SelectedCellId);
+            var cell = FlatGrid(session).FirstOrDefault(c => c.Id == session.SelectedCellId);
             if (cell == null) return null;
 
             // Clear selection
-            foreach (var c in session.Grid.SelectMany(r => r))
+            foreach (var c in FlatGrid(session))
                 c.IsSelected = false;
 
             if (team != "skip")
@@ -580,7 +673,7 @@ public class SessionManager
             }
 
             // Check if all cells claimed
-            var allClaimed = session.Grid.SelectMany(r => r).All(c => c.Owner != null);
+            var allClaimed = FlatGrid(session).All(c => c.Owner != null);
             if (allClaimed)
             {
                 session.RoundWinner = "draw";
@@ -617,7 +710,7 @@ public class SessionManager
 
         lock (_lock)
         {
-            var cell = session.Grid.SelectMany(r => r).FirstOrDefault(c => c.Id.Equals(cellId, StringComparison.OrdinalIgnoreCase));
+            var cell = FlatGrid(session).FirstOrDefault(c => c.Id.Equals(cellId, StringComparison.OrdinalIgnoreCase));
             if (cell == null) return false;
 
             var previousRoundWinner = session.RoundWinner;
@@ -1008,47 +1101,15 @@ public class SessionManager
         using var scope = _serviceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         
-        // Use AsNoTracking for better performance on read-only operations
-        var persistedSessions = await dbContext.PersistedSessions
-            .AsNoTracking()
-            .Where(s => s.ExpiresAt > DateTime.UtcNow)
-            .ToListAsync();
-        
-        foreach (var persisted in persistedSessions)
+        try
         {
-            try
-            {
-                // Cache the persisted session
-                _persistedCache[persisted.Id] = persisted;
-                
-                var session = new GameSession
-                {
-                    Id = persisted.Id,
-                    HostPlayerId = persisted.HostPlayerId,
-                    GridSize = persisted.GridSize,
-                    TotalRounds = persisted.TotalRounds,
-                    CurrentRound = persisted.CurrentRound,
-                    MaxPlayersPerTeam = persisted.MaxPlayersPerTeam,
-                    Phase = Enum.Parse<GamePhase>(persisted.Phase, true),
-                    Grid = JsonSerializer.Deserialize<List<List<HexCell>>>(persisted.SerializedGrid) ?? [],
-                    Players = JsonSerializer.Deserialize<List<Player>>(persisted.SerializedPlayers) ?? [],
-                    OrangeScore = persisted.OrangeScore,
-                    GreenScore = persisted.GreenScore,
-                    SelectedCellId = persisted.SelectedCellId,
-                    Question = JsonSerializer.Deserialize<SelectedQuestion>(persisted.SerializedQuestion) ?? new(),
-                    Buzzer = JsonSerializer.Deserialize<BuzzerState>(persisted.SerializedBuzzer) ?? new(),
-                    RoundWinner = persisted.RoundWinner,
-                    Version = persisted.Version,
-                    PasswordHash = persisted.PasswordHash
-                };
-                
-                _sessions.TryAdd(session.Id, session);
-            }
-            catch (Exception ex)
-            {
-                // Log error but continue loading other sessions
-                Console.WriteLine($"Failed to load session {persisted.Id}: {ex.Message}");
-            }
+            // Clear all sessions on backend restart
+            await dbContext.PersistedSessions.ExecuteDeleteAsync();
+            Console.WriteLine("[SessionManager] Cleared all persisted sessions on startup.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SessionManager] Error clearing persisted sessions: {ex.Message}");
         }
     }
 
@@ -1120,36 +1181,38 @@ public class SessionManager
 
     private void CleanupExpiredSessions(object? state)
     {
-        Task.Run(async () =>
+        _ = CleanupExpiredSessionsAsync();
+    }
+
+    private async Task CleanupExpiredSessionsAsync()
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        
+        var expiredIds = await dbContext.PersistedSessions
+            .Where(s => s.ExpiresAt <= DateTime.UtcNow)
+            .Select(s => s.Id)
+            .ToListAsync();
+        
+        foreach (var expiredId in expiredIds)
         {
-            using var scope = _serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            
-            // Get expired session IDs only (no tracking needed)
-            var expiredIds = await dbContext.PersistedSessions
-                .AsNoTracking()
+            _sessions.TryRemove(expiredId, out _);
+            _persistedCache.TryRemove(expiredId, out _);
+        }
+        
+        if (expiredIds.Count > 0)
+        {
+            await dbContext.PersistedSessions
                 .Where(s => s.ExpiresAt <= DateTime.UtcNow)
-                .Select(s => s.Id)
-                .ToListAsync();
-            
-            foreach (var expiredId in expiredIds)
-            {
-                // Remove from memory and cache
-                _sessions.TryRemove(expiredId, out _);
-                _persistedCache.TryRemove(expiredId, out _);
-            }
-            
-            // Bulk delete using ExecuteDeleteAsync for better performance
-            if (expiredIds.Count > 0)
-            {
-                await dbContext.PersistedSessions
-                    .Where(s => s.ExpiresAt <= DateTime.UtcNow)
-                    .ExecuteDeleteAsync();
-            }
-        });
+                .ExecuteDeleteAsync();
+        }
     }
 
     // ─── Helpers ────────────────────────────────────────────
+
+    /// <summary>Flatten the 2D grid into a single enumerable. Avoids repeated SelectMany calls.</summary>
+    private static IEnumerable<HexCell> FlatGrid(GameSession session) =>
+        session.Grid.SelectMany(r => r);
 
     private void IncrementVersionAndSave(GameSession session)
     {
@@ -1168,11 +1231,23 @@ public class SessionManager
         // Debounce save - wait 500ms before actually saving
         _ = Task.Run(async () =>
         {
-            await Task.Delay(500, newToken.Token);
-            if (!newToken.Token.IsCancellationRequested)
+            try
             {
-                await SaveSessionAsync(session);
+                await Task.Delay(500, newToken.Token);
+                if (!newToken.Token.IsCancellationRequested)
+                {
+                    await SaveSessionAsync(session);
+                }
+            }
+            catch (OperationCanceledException) { /* Debounce cancelled — expected */ }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[SessionManager] Error saving session {session.Id}: {ex.Message}");
+            }
+            finally
+            {
                 _saveTokens.TryRemove(session.Id, out _);
+                newToken.Dispose();
             }
         });
     }
@@ -1183,6 +1258,7 @@ public class SessionManager
         if (_saveTokens.TryRemove(session.Id, out var token))
         {
             token.Cancel();
+            token.Dispose();
         }
         
         _sessions.TryRemove(sessionId, out _);
@@ -1200,8 +1276,7 @@ public class SessionManager
 
     private static string HashPassword(string password)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(password));
-        return Convert.ToHexStringLower(bytes);
+        return BCrypt.Net.BCrypt.HashPassword(password);
     }
 
     private static string NormalizePlayerName(string name)

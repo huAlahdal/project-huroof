@@ -165,5 +165,15 @@
   { "Id": "y02", "Letter": "ي", "Question": "ما اسم البحر الذي يفصل آسيا عن أفريقيا؟", "Answer": "البحر الأحمر - لا يبدأ بـ ي. لكن: اليابان دولة ✓", "Category": "جغرافيا", "Difficulty": "easy" },
   { "Id": "y03", "Letter": "ي", "Question": "ما اسم الحيوان البحري الذي يشبه الإنسان في ذكائه؟", "Answer": "دلفين - لا يبدأ بـ ي. لكن: يرقة النحل ✓", "Category": "علوم", "Difficulty": "medium" },
   { "Id": "y04", "Letter": "ي", "Question": "ما عاصمة اليونان؟", "Answer": "أثينا - لا تبدأ بـ ي. لكن: اليونان الدولة ✓", "Category": "جغرافيا", "Difficulty": "easy" },
-  { "Id": "y05", "Letter": "ي", "Question": "ما اسم النهار الذي يفطر فيه الصائمون في رمضان؟", "Answer": "الإفطار - لا يبدأ بـ ي. لكن: يوم العيد ✓", "Category": "دين", "Difficulty": "easy" }
+  { "Id": "y05", "Letter": "ي", "Question": "ما اسم النهار الذي يفطر فيه الصائمون في رمضان؟", "Answer": "الإفطار - لا يبدأ بـ ي. لكن: يوم العيد ✓", "Category": "دين", "Difficulty": "easy" },
+  { "Id": "thal01", "Letter": "ذ", "Question": "ما اسم المعدن النفيس ذو اللون الأصفر الرنان؟", "Answer": "ذهب", "Category": "علوم", "Difficulty": "easy" },
+  { "Id": "thal02", "Letter": "ذ", "Question": "ما اسم الحيوان المفترس الذي يُشبه الكلب ويعوي في الليل؟", "Answer": "ذئب", "Category": "علوم", "Difficulty": "easy" },
+  { "Id": "thal03", "Letter": "ذ", "Question": "ما اسم الحشرة الطائرة المزعجة التي تنجذب للنفايات؟", "Answer": "ذبابة", "Category": "علوم", "Difficulty": "easy" },
+  { "Id": "dad01", "Letter": "ض", "Question": "ما اسم الحيوان البرمائي الذي يقفز ويصدر صوتاً يسمى النقيق؟", "Answer": "ضفدع", "Category": "علوم", "Difficulty": "easy" },
+  { "Id": "dad02", "Letter": "ض", "Question": "ما اسم الحيوان المفترس الذي يشتهر بضحكته المتميزة؟", "Answer": "ضبع", "Category": "علوم", "Difficulty": "medium" },
+  { "Id": "dad03", "Letter": "ض", "Question": "ماذا يسمى النور الساطع المنبعث من مصدر مضيء؟", "Answer": "ضياء", "Category": "عام", "Difficulty": "easy" },
+  { "Id": "dha01", "Letter": "ظ", "Question": "ما اسم الحيوان الرشيق الذي يشبه الغزال ويعيش في الصحاري؟", "Answer": "ظبي", "Category": "علوم", "Difficulty": "easy" },
+  { "Id": "dha02", "Letter": "ظ", "Question": "ماذا يسمى الخيال الداكن الذي يتكون عندما يحجب جسم ضوء الشمس؟", "Answer": "ظل", "Category": "عام", "Difficulty": "easy" },
+  { "Id": "dha03", "Letter": "ظ", "Question": "ما الجزء الصلب الذي يغطي أطراف أصابع الإنسان؟", "Answer": "ظفر", "Category": "علوم", "Difficulty": "easy" }
 ]
+

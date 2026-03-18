@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import { invoke, on, startConnection } from "~/lib/signalr";
+import { useAuth } from "~/contexts/AuthContext";
 import { fetchRandomQuestion } from "~/lib/questions";
 import type { Question } from "~/lib/questions";
 import type { HexCell } from "~/lib/hexUtils";
@@ -196,6 +197,7 @@ function normalizeGameState(state: GameState | GameStateWire): GameState {
 export default function GamePage() {
     const { sessionId } = useParams();
     const navigate = useNavigate();
+    const { user, loading: authLoading } = useAuth();
     const [state, setState] = useState<GameState | null>(null);
     const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
     const [connected, setConnected] = useState(false);
@@ -210,83 +212,68 @@ export default function GamePage() {
     const [buzzerResult, setBuzzerResult] = useState<"first" | "late" | null>(null);
     const [isBuzzing, setIsBuzzing] = useState(false);
 
-    // Timer state
+    // Timer state — computed from server timestamps so all clients stay in sync
     const [timerPhase, setTimerPhase] = useState<"first" | "second" | "expired" | "open" | null>(null);
     const [timerSeconds, setTimerSeconds] = useState(0);
     const [timerPosition, setTimerPosition] = useState<"bottom-left" | "bottom-center" | "bottom-right" | "top-left" | "top-center" | "top-right">("top-center");
+    const prevTimerPhaseRef = useRef<string | null>(null);
 
-    // Sound effects
-    const playBuzzerSound = useCallback(() => {
-        try {
-            const audio = new Audio('/buzzer.mp3');
-            audio.volume = 0.3;
-            
-            // Handle errors when file is not found or cannot be played
-            audio.addEventListener('error', () => {
-                console.log('Buzzer sound file not found or cannot be played');
-            });
-            
-            audio.play().catch((error) => {
-                console.log('Failed to play buzzer sound:', error);
-            });
-        } catch (error) {
-            console.log('Error creating buzzer audio:', error);
-        }
+    // Sound effects — tries /sounds/ first, then root /public, supports mp3 & wav
+    const playSound = useCallback((names: string[], volume: number) => {
+        // Build a priority list: /sounds/file.mp3, /sounds/file.wav, /file.mp3, /file.wav
+        const paths = names.flatMap(n => [`/sounds/${n}`, `/${n}`]);
+        const tryNext = (i: number) => {
+            if (i >= paths.length) return;
+            try {
+                const audio = new Audio(paths[i]);
+                audio.volume = volume;
+                audio.addEventListener('error', () => tryNext(i + 1));
+                audio.play().catch(() => tryNext(i + 1));
+            } catch { tryNext(i + 1); }
+        };
+        tryNext(0);
     }, []);
+
+    const playBuzzerSound = useCallback(() => {
+        // Looks for: /sounds/buzzer.mp3, /sounds/buzzer.wav, /buzzer.mp3, /buzzer.wav
+        playSound(['buzzer.mp3', 'buzzer.wav'], 0.3);
+    }, [playSound]);
 
     const playTimerEndSound = useCallback(() => {
-        try {
-            const audio = new Audio('/timer-end.mp3');
-            audio.volume = 0.5;
-            
-            // Handle errors when file is not found or cannot be played
-            audio.addEventListener('error', () => {
-                console.log('Timer end sound file not found or cannot be played');
-            });
-            
-            audio.play().catch((error) => {
-                console.log('Failed to play timer end sound:', error);
-            });
-        } catch (error) {
-            console.log('Error creating timer end audio:', error);
-        }
-    }, []);
+        // Looks for: /sounds/timeup.mp3, /sounds/timeup.wav, /sounds/timer-end.mp3 ...
+        playSound(['timeup.mp3', 'timeup.wav', 'timer-end.mp3', 'timer-end.wav'], 0.5);
+    }, [playSound]);
 
     // ─── Connection Setup ────────────────────────────────────
 
     useEffect(() => {
-        if (!sessionId) return;
+        if (!sessionId || authLoading) return;
+        if (!user) { navigate("/"); return; }
 
         let cancelled = false;
         const init = async () => {
             try {
                 await startConnection();
 
-                const storedPass = sessionStorage.getItem(`huroof_pass_${sessionId}`);
-                const storedName = sessionStorage.getItem(`huroof_name_${sessionId}`);
-                const storedPlayerId = sessionStorage.getItem(`huroof_playerId_${sessionId}`);
-
-                if (storedPass && storedName) {
-                    const result = await invoke<{ success?: boolean; error?: string; playerId?: string }>(
-                        "JoinSession", sessionId, storedPass, storedName
-                    );
-                    if (!cancelled) {
-                        if (result.error && result.error.includes("not found")) {
-                            // Session not found, redirect to home
-                            navigate("/");
-                            return;
-                        }
-                        if (result.success) {
-                            setMyPlayerId(result.playerId || storedPlayerId || null);
-                            setConnected(true);
-                        } else {
-                            // Show error message and let user try to rejoin
-                            setError(result.error || "فشل الانضمام للجلسة");
-                        }
+                const name = user.inGameName || "لاعب";
+                const result = await invoke<{ success?: boolean; error?: string; playerId?: string }>(
+                    "JoinSession", sessionId, null, name
+                );
+                if (!cancelled) {
+                    if (result.error && result.error.includes("not found")) {
+                        navigate("/");
+                        return;
+                    }
+                    if (result.success) {
+                        setMyPlayerId(result.playerId || null);
+                        setConnected(true);
+                    } else {
+                        setError(result.error || "فشل الانضمام للجلسة");
                     }
                 }
 
-                if (!cancelled && !storedPass) {
+                if (!cancelled && !result?.success) {
+                    // If we still can't join (password-protected?), go home
                     navigate("/");
                 }
             } catch {
@@ -296,7 +283,7 @@ export default function GamePage() {
 
         init();
         return () => { cancelled = true; };
-    }, [sessionId, navigate]);
+    }, [sessionId, navigate, authLoading, user]);
 
     // ─── SignalR Events ──────────────────────────────────────
 
@@ -323,12 +310,6 @@ export default function GamePage() {
         // Player was kicked
         const unsubKicked = on("KickedFromSession", (data: unknown) => {
             const kickData = data as { reason: string };
-            if (sessionId) {
-                sessionStorage.removeItem(`huroof_name_${sessionId}`);
-                sessionStorage.removeItem(`huroof_playerId_${sessionId}`);
-                sessionStorage.removeItem(`huroof_creator_${sessionId}`);
-                sessionStorage.removeItem(`huroof_pass_${sessionId}`);
-            }
             navigate("/", { state: { kicked: true, reason: kickData.reason } });
         });
 
@@ -370,39 +351,65 @@ export default function GamePage() {
     }, [state?.buzzer.buzzerLocked, state?.buzzer.buzzedPlayerId, myPlayerId]);
 
     // ─── Timer Countdown ─────────────────────────────────────
+    //
+    // All clients derive the timer from the same server-authoritative timestamps
+    // (buzzedAt, passedToOtherTeamAt) rather than from server-pre-computed
+    // remainingSeconds. This keeps every player's display perfectly in sync
+    // regardless of network jitter or when they received the last state update.
 
     useEffect(() => {
-        // Use server-provided timer state if available
-        if (state?.buzzer.timerPhase && state?.buzzer.remainingSeconds !== null) {
-            const newPhase = state.buzzer.timerPhase as "first" | "second" | "expired" | "open";
-            const prevPhase = timerPhase;
-            
-            setTimerPhase(newPhase);
-            setTimerSeconds(state.buzzer.remainingSeconds);
-            
-            // Play sound when timer expires
-            if (prevPhase !== "expired" && newPhase === "expired") {
-                playTimerEndSound();
-            }
-            
-            // Set up interval to decrement locally for smooth countdown
-            if (state.buzzer.remainingSeconds > 0 && (state.buzzer.timerPhase === "first" || state.buzzer.timerPhase === "second")) {
-                const id = setInterval(() => {
-                    setTimerSeconds(prev => {
-                        const newVal = Math.max(0, prev - 1);
-                        if (newVal === 0 && prev > 0) {
-                            playTimerEndSound();
-                        }
-                        return newVal;
-                    });
-                }, 1000);
-                return () => clearInterval(id);
-            }
-        } else {
+        const buzzer = state?.buzzer;
+
+        // Open buzzer mode — no countdown
+        if (buzzer?.buzzerIsOpenMode) {
+            prevTimerPhaseRef.current = "open";
+            setTimerPhase("open");
+            setTimerSeconds(0);
+            return;
+        }
+
+        // No active buzz — clear
+        if (!buzzer?.buzzerLocked || !buzzer.buzzedAt) {
+            prevTimerPhaseRef.current = null;
             setTimerPhase(null);
             setTimerSeconds(0);
+            return;
         }
-    }, [state?.buzzer.timerPhase, state?.buzzer.remainingSeconds, state?.buzzer.buzzedAt, state?.buzzer.passedToOtherTeamAt, playTimerEndSound]);
+
+        const { buzzedAt, passedToOtherTeamAt, buzzerTimerFirst, buzzerTimerSecond } = buzzer;
+
+        const compute = () => {
+            const now = Date.now();
+            const elapsed = (now - buzzedAt) / 1000;
+
+            if (elapsed < buzzerTimerFirst) {
+                return { phase: "first" as const, seconds: Math.ceil(buzzerTimerFirst - elapsed) };
+            }
+            if (!passedToOtherTeamAt) {
+                return { phase: "expired" as const, seconds: 0 };
+            }
+            const elapsedSincePass = (now - passedToOtherTeamAt) / 1000;
+            if (elapsedSincePass < buzzerTimerSecond) {
+                return { phase: "second" as const, seconds: Math.ceil(buzzerTimerSecond - elapsedSincePass) };
+            }
+            return { phase: "open" as const, seconds: 0 };
+        };
+
+        const tick = () => {
+            const { phase, seconds } = compute();
+            const prev = prevTimerPhaseRef.current;
+            // Play sound on transitions into "expired" or "open" (second timer ran out)
+            if (prev !== "expired" && phase === "expired") playTimerEndSound();
+            if (prev === "second" && phase === "open") playTimerEndSound();
+            prevTimerPhaseRef.current = phase;
+            setTimerPhase(phase);
+            setTimerSeconds(seconds);
+        };
+
+        tick(); // update immediately then poll every 250ms for smooth display
+        const id = setInterval(tick, 250);
+        return () => clearInterval(id);
+    }, [state?.buzzer.buzzerLocked, state?.buzzer.buzzedAt, state?.buzzer.passedToOtherTeamAt, state?.buzzer.buzzerIsOpenMode, playTimerEndSound]);
 
     // ─── Derived State ───────────────────────────────────────
 
@@ -574,13 +581,8 @@ export default function GamePage() {
     const handleLeaveGame = useCallback(async () => {
         try { await invoke("LeaveSession"); }
         catch { /* ignore */ }
-        if (sessionId) {
-            sessionStorage.removeItem(`huroof_name_${sessionId}`);
-            sessionStorage.removeItem(`huroof_playerId_${sessionId}`);
-            sessionStorage.removeItem(`huroof_pass_${sessionId}`);
-        }
         navigate("/");
-    }, [navigate, sessionId]);
+    }, [navigate]);
 
     // ─── Loading ─────────────────────────────────────────────
 
@@ -730,7 +732,7 @@ export default function GamePage() {
                             <div key={t.team} className="flex-1 glass-card py-1.5 px-2 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <div
-                                        className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                                        className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
                                         style={{
                                             background: t.team === "orange" 
                                                 ? "linear-gradient(135deg, #f97316, #ea580c)" 
@@ -813,6 +815,51 @@ export default function GamePage() {
                     {!isGameMaster && (
                         <div className="glass-card p-3 sm:hidden">
                             <PlayerList players={state.players} />
+                        </div>
+                    )}
+
+                    {/* Mobile GM Panel */}
+                    {isGameMaster && (
+                        <div className="sm:hidden w-full glass-card p-3 overflow-y-auto" style={{ maxHeight: "60vh" }}>
+                            <GameMasterPanel
+                                selectedLetter={state.question.letter}
+                                questionText={state.question.questionText}
+                                answerText={state.question.answerText}
+                                category={state.question.category}
+                                difficulty={state.question.difficulty}
+                                showQuestion={state.question.showQuestion}
+                                buzzedTeam={state.buzzer.buzzedTeam}
+                                buzzedPlayerName={state.buzzer.buzzedPlayerName}
+                                buzzerLocked={state.buzzer.buzzerLocked}
+                                passedToOtherTeamAt={state.buzzer.passedToOtherTeamAt}
+                                buzzerIsOpenMode={state.buzzer.buzzerIsOpenMode}
+                                buzzerTimerFirst={state.buzzer.buzzerTimerFirst}
+                                buzzerTimerSecond={state.buzzer.buzzerTimerSecond}
+                                buzzedAt={state.buzzer.buzzedAt}
+                                orangeName={orangeName}
+                                greenName={greenName}
+                                players={state.players}
+                                onPickRandom={handlePickRandom}
+                                onSelectCell={handleSelectCell}
+                                onAwardOrange={() => handleAward("orange")}
+                                onAwardGreen={() => handleAward("green")}
+                                onSkip={handleSkip}
+                                onRefreshQuestion={handleRefreshQuestion}
+                                onShowQuestion={handleShowQuestion}
+                                onResetBuzzer={handleResetBuzzer}
+                                onPassToOtherTeam={handlePassToOtherTeam}
+                                onOpenBuzzer={handleOpenBuzzer}
+                                onNextRound={handleNextRound}
+                                onResetGame={handleResetGame}
+                                onEndSession={handleEndSession}
+                                onSelectQuestion={handleSelectQuestion}
+                                onSetTimerConfig={handleSetTimerConfig}
+                                onSwitchPlayers={handleSwitchPlayers}
+                                onKickPlayer={handleKickPlayer}
+                                onSwitchPlayerTeam={handleSwitchPlayerTeam}
+                                onMoveSpectatorToTeam={handleMoveSpectatorToTeam}
+                                onChangeHexWinner={handleChangeHexWinner}
+                            />
                         </div>
                     )}
                 </main>

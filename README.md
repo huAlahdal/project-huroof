@@ -1,498 +1,342 @@
-# حروف (Huroof) - لعبة الأحرف التنافسية
-
-![Huroof Logo](https://via.placeholder.com/150x150/4F46E5/FFFFFF?text=حروف)
+﻿# حروف (Huroof)  لعبة الأحرف التنافسية
 
 [![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg)](https://www.typescriptlang.org/)
+[![SignalR](https://img.shields.io/badge/SignalR-Realtime-green.svg)](https://learn.microsoft.com/aspnet/core/signalr/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-لعبة تفاعلية متعددة اللاعبين تعتمد على الأحرف العربية والأسئلة المتنوعة، مصممة لتكون تعليمية وترفيهية في نفس الوقت.
+لعبة جماعية تفاعلية متعددة اللاعبين تعتمد على الأحرف العربية والأسئلة الثقافية المتنوعة.
 
-## � Quick Start (Windows)
+---
 
-للتشغيل السريع على ويندوز:
+##  التشغيل السريع (Windows)
+
 ```bash
-# 1. تثبيت المتطلبات
-# - .NET 10.0: https://dotnet.microsoft.com/download
-# - Node.js: https://nodejs.org
-
-# 2. تشغيل اللعبة
+# 1. تأكد من تثبيت: .NET 10 + Node.js
+# 2. شغل السكريبت
 double-click deploy-windows.bat
-
-# 3. أرسل الرابط الذي يظهر لأصدقائك
+# 3. أرسل الرابط الظاهر لأصدقائك
 ```
 
-للتعليمات التفصيلية، انظر [WINDOWS_README.md](WINDOWS_README.md)
+للتعليمات التفصيلية انظر [WINDOWS_README.md](WINDOWS_README.md)
 
-## 📋 محتويات
+---
 
-- [نظرة عامة](#نظرة-عامة)
-- [المميزات](#المميزات)
-- [التشغيل السريع](#quick-start-windows)
-- [التثبيت والتشغيل المحلي](#التثبيت-والتشغيل-المحلي)
-- [التشغيل باستخدام Docker](#التشغيل-باستخدام-docker)
-- [النشر على الإنترنت](#النشر-على-الإنترنت)
-- [هيكل المشروع](#هيكل-المشروع)
-- [رفع ملفات الأسئلة (JSON)](#رفع-ملفات-الأسئلة-json)
-- [تخصيص أصوات المؤقت والجرس](#تخصيص-أصوات-المؤقت-والجرس)
-- [واجهة برمجة التطبيقات (API)](#واجهة-برمجة-التطبيقات-api)
-- [المساهمة في المشروع](#المساهمة-في-المشروع)
-- [الترخيص](#الترخيص)
+##  محتويات
 
-## 🎯 نظرة عامة
+- [نظرة عامة](#-نظرة-عامة)
+- [المميزات](#-المميزات)
+- [التثبيت المحلي](#-التثبيت-والتشغيل-المحلي)
+- [Docker](#-التشغيل-باستخدام-docker)
+- [هيكل المشروع](#-هيكل-المشروع)
+- [نظام الحسابات](#-نظام-الحسابات-والمصادقة)
+- [لوحة الإدارة](#-لوحة-الإدارة-admin)
+- [الأصوات المخصصة](#-تخصيص-الأصوات)
+- [رفع الأسئلة](#-رفع-ملفات-الأسئلة-json)
+- [API](#-واجهة-برمجة-التطبيقات)
+- [المساهمة](#-المساهمة)
+- [سجل التغييرات](#-سجل-التغييرات-الرئيسية)
 
-حروف هي لعبة جماعية حيث يتنافس فريقان (البرتقالي والأخضر) للإجابة على أسئلة تبدأ بحروف معينة. يتميز اللعبة بواجهة عصرية وتجربة مستخدم سلسة مع دعم كامل للغة العربية.
+---
+
+##  نظرة عامة
+
+فريقان (البرتقالي  والأخضر ) يتنافسان للإجابة على أسئلة تبدأ بحروف معينة على شبكة سداسية. الفائز هو من يوصل مساره عبر الشبكة أولا.
 
 ### كيفية اللعب:
-1. ينضم اللاعبون إلى غرفة اللعب
-2. يقوم مدير اللعبة ببدء الجولة
-3. يختار مدير اللعبة خلية من الشبكة لتحديد الحرف والسؤال
-4. يتنافس الفريقان للضغط على الجسر أولاً
-5. الفريق الذي يضغط الجسر أولاً يحصل على فرصة الإجابة
-6. الإجابة الصحيحة تكسب الفريق نقطة والخلية
+1. أنشئ جلسة أو انضم بالرمز
+2. اختر فريقك  يعين مدير اللعبة من المضيف
+3. مدير اللعبة يختار خلية من الشبكة لتحديد الحرف والسؤال
+4. اضغط الجرس أولا  **ماوس** أو **Space** أو **Enter**
+5. الفريق الذي يضغط أولا يجيب  الإجابة الصحيحة تمنحه الخلية
+6. أول فريق يربط مساره عبر الشبكة يفوز!
 
-## ✨ المميزات
+---
 
-### 🎮 مميزات اللعبة
-- **شبكة تفاعلية**: شبكة من الخلايا السداسية (4x4, 5x5, 6x6)
-- **نظام جسر ذكي**: جهاز جسر إلكتروني مع مؤقتات متعددة
-- **أسئلة متنوعة**: مكتبة أسئلة ضخمة مقسمة حسب الفئات والصعوبة
-- **نظام نقاط**: تتبع تلقائي للنقاط والفائزين
-- **جولات متعددة**: إمكانية اللعب بعدة جولات
+##  المميزات
 
-### 👥 مميزات متعددة اللاعبين
-- **غرف لعب خاصة**: إنشاء غرف بكود دخول خاص
-- **أدوار متعددة**: مدير لعبة، لاعبون، ومشاهدون
-- **اتصال حقيقي**: استخدام SignalR للاتصال الفوري
-- **إدارة اللاعبين**: طرد ونقل اللاعبين بين الفرق
+###  اللعب
+- شبكة سداسية تفاعلية (44 55 66)
+- **جرس بلوحة المفاتيح**: Space أو Enter أو نقر الماوس
+- أسئلة مصنفة بحسب الحرف والفئة والصعوبة
+- مؤقت مرئي لكل مرحلة (إجابة أولى إجابة ثانية وقت مفتوح)
+- مدير لعبة يختار الخلايا ويحكم على الإجابات
+- شاشة فوز احتفالية بالفريق الرابح
 
-### 🎨 مميزات الواجهة
-- **تصميم عصري**: واجهة مستخدم جميلة بألوان متدرجة
-- **دعم كامل للعربية**: واجهة بالكامل باللغة العربية
-- **وضع ليلي**: دعم الوضع الليلي والنهاري
-- **تصميم متجاوب**: يعمل على جميع أحجام الشاشات
-- **رسوم متحركة سلسة**: انتقالات وحركات جذابة
+###  تعدد اللاعبين
+- غرف لعب خاصة برمز ست أحرف
+- حماية اختيارية بكلمة مرور للجلسة
+- أدوار: مدير لعبة  لاعب برتقالي  لاعب أخضر  مشاهد
+- تغيير الفريق أثناء اللعب
+- طرد اللاعبين وإعادة تعيينهم
+- اتصال فوري عبر SignalR + MessagePack
 
-### 🔊 مميزات إضافية
-- **مؤثرات صوتية**: أصوات عند الضغط على الجسر وانتهاء الوقت
-- **مؤقتات مرئية**: عرض الوقت المتبقي بشكل واضح
-- **تخصيص الإعدادات**: تغيير حجم الشبكة وعدد الجولات
+###  نظام الحسابات
+- **تسجيل مبسط**: 3 حقول فقط (بريد + اسم + كلمة مرور)
+- اسم المستخدم الداخلي يشتق تلقائيا من البريد الإلكتروني
+- **وضع الضيف**: العب فورا بدون حساب (24 ساعة)
+- JWT آمن  7 أيام للمستخدمين 24 ساعة للضيوف
+- ملف شخصي قابل للتعديل (اسم بريد كلمة مرور)
+- إحصائيات لكل مستخدم (مباريات وانتصارات)
 
-## 💻 متطلبات النظام
+###  الإدارة
+- لوحة إدارة `/admin` متكاملة
+- إدارة المستخدمين: عرض تعديل تعطيل حذف
+- رفع ملفات أسئلة JSON وإدارة بنك الأسئلة
+- إحصائيات عامة للخادم
+- بحث وتصفية في قائمة المستخدمين وتعيين الأدوار
 
-### للتشغيل المحلي:
-- **Node.js**: الإصدار 18 أو أحدث
-- **.NET**: الإصدار 10.0 أو أحدث
-- **npm**: الإصدار 9 أو أحدث
-- **Git**: لنسخ المشروع
+###  الواجهة
+- تصميم عصري (glassmorphism + ألوان متدرجة)
+- دعم كامل للغة العربية (RTL)
+- وضع ليلي / نهاري قابل للتبديل
+- تصميم متجاوب: موبايل + تابلت + ديسكتوب
+- رسوم متحركة ناعمة
 
-### للنشر:
-- **Docker**: الإصدار 20 أو أحدث (اختياري)
-- **خادم ويب**: أي خادم يدعم Node.js أو .NET
+###  الأصوات
+- صوت الجرس عند الضغط
+- صوت انتهاء الوقت
+- ضع ملفاتك في `/sounds/`  يكتشف تلقائيا بدون تعديل كود
+- يدعم MP3 و WAV
 
-## 🚀 التثبيت والتشغيل المحلي
+---
+
+##  متطلبات النظام
+
+| المكون | الإصدار المطلوب |
+|---------|----------------|
+| .NET    | 10.0+          |
+| Node.js | 18+            |
+| npm     | 9+             |
+| Docker  | 20+ (اختياري)  |
+
+---
+
+##  التثبيت والتشغيل المحلي
 
 ### 1. نسخ المشروع
-
 ```bash
 git clone https://github.com/yourusername/huroof.git
 cd huroof
 ```
 
-### 2. تثبيت الواجهة الخلفية (Backend)
-
+### 2. الواجهة الخلفية
 ```bash
 cd backend
 dotnet restore
 dotnet ef database update
 dotnet run
+# http://localhost:5062
 ```
 
-الواجهة الخلفية ستعمل على `http://localhost:5062`
-
-### 3. تثبيت الواجهة الأمامية (Frontend)
-
-افتح محطة جديدة وانتقل إلى مجلد frontend:
-
+### 3. الواجهة الأمامية
 ```bash
 cd frontend
 npm install
 npm run dev
+# http://localhost:5173
 ```
 
-الواجهة الأمامية ستعمل على `http://localhost:5173`
+---
 
-### 4. الوصول إلى اللعبة
-
-افتح المتصفح وانتقل إلى `http://localhost:5173`
-
-## 🐳 التشغيل باستخدام Docker
-
-### بناء الصور
-
-```bash
-# بناء صورة الواجهة الأمامية
-cd frontend
-docker build -t huroof-frontend .
-
-# بناء صورة الواجهة الخلفية
-cd ../backend
-docker build -t huroof-backend .
-```
-
-### تشغيل الحاويات
-
-```bash
-# تشغيل الواجهة الخلفية
-docker run -d -p 5062:5062 --name huroof-backend huroof-backend
-
-# تشغيل الواجهة الأمامية
-docker run -d -p 5173:5173 --name huroof-frontend huroof-frontend
-```
-
-### استخدام Docker Compose
-
-أنشئ ملف `docker-compose.yml`:
-
-```yaml
-version: '3.8'
-
-services:
-  backend:
-    build: ./backend
-    ports:
-      - "5062:5062"
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-    volumes:
-      - ./backend/Data:/app/Data
-
-  frontend:
-    build: ./frontend
-    ports:
-      - "5173:5173"
-    depends_on:
-      - backend
-    environment:
-      - VITE_API_URL=http://localhost:5062
-```
-
-ثم قم بتشغيل:
+##  التشغيل باستخدام Docker
 
 ```bash
 docker-compose up -d
 ```
 
-## 🌐 النشر على الإنترنت
-
-### 1. النشر على Vercel (موصى به للواجهة الأمامية)
-
+أو يدويا:
 ```bash
-# تثبيت Vercel CLI
-npm i -g vercel
-
-# النشر
-cd frontend
-vercel --prod
+cd backend && docker build -t huroof-backend . && docker run -d -p 5062:5062 huroof-backend
+cd frontend && docker build -t huroof-frontend . && docker run -d -p 80:80 huroof-frontend
 ```
 
-### 2. النشر على Railway (للواجهة الخلفية)
+---
 
-```bash
-# تثبيت Railway CLI
-npm install -g @railway/cli
-
-# تسجيل الدخول
-railway login
-
-# النشر
-cd backend
-railway up
-```
-
-### 3. النشر على Azure
-
-#### للواجهة الخلفية:
-```bash
-# تثبيت Azure CLI
-# إنشاء Resource Group
-az group create --name huroof-rg --location eastus
-
-# إنشاء App Service Plan
-az appservice plan create --name huroof-plan --resource-group huroof-rg --sku B1
-
-# إنشاء Web App
-az webapp create --name huroof-backend --resource-group huroof-rg --plan huroof-plan --runtime "DOTNETCORE|10.0"
-
-# النشر
-az webapp up --name huroof-backend --resource-group huroof-rg
-```
-
-#### للواجهة الأمامية:
-```bash
-# بناء المشروع للإنتاج
-cd frontend
-npm run build
-
-# نشر الملفات إلى Azure Storage
-az storage blob upload-batch --destination <storage-account>/web --source build/client
-```
-
-### 4. النشر على AWS
-
-#### باستخدام AWS Amplify (للواجهة الأمامية):
-```bash
-# تثبيت Amplify CLI
-npm install -g @aws-amplify/cli
-
-# تهيئة المشروع
-cd frontend
-amplify init
-
-# النشر
-amplify publish
-```
-
-#### باستخدام AWS ECS (للواجهة الخلفية):
-```bash
-# بناء صورة Docker ودفعها إلى ECR
-docker build -t huroof-backend .
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
-docker tag huroof-backend:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/huroof-backend:latest
-docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/huroof-backend:latest
-```
-
-### 5. النشر على DigitalOcean
-
-```bash
-# إنشاء Droplet
-# تثبيت Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
-
-# نسخ الملفات ونشرها
-docker-compose up -d
-```
-
-### 6. النشر على Heroku
-
-```bash
-# تثبيت Heroku CLI
-# إنشاء تطبيق
-heroku create huroof-backend
-
-# إضافة buildpacks
-heroku buildpacks:add heroku/nodejs
-heroku buildpacks:add jincod/dotcore
-
-# النشر
-git subtree push --prefix backend heroku main
-```
-
-## 📁 هيكل المشروع
+##  هيكل المشروع
 
 ```
 huroof/
-├── backend/                    # الواجهة الخلفية (.NET)
-│   ├── Controllers/           # متحكمات API
-│   ├── Data/                  # قاعدة البيانات والأسئلة
-│   ├── Hubs/                  # SignalR Hubs
-│   ├── Models/                # نماذج البيانات
-│   ├── Services/              # خدمات الأعمال
-│   ├── Migrations/            # ترحيلات قاعدة البيانات
-│   └── Properties/            # إعدادات المشروع
-├── frontend/                  # الواجهة الأمامية (React)
-│   ├── app/                   # مكونات التطبيق
-│   │   ├── components/        # المكونات القابلة لإعادة الاستخدام
-│   │   ├── contexts/          # React Contexts
-│   │   ├── lib/               # مكتبات مساعدة
-│   │   └── routes/            # مسارات التطبيق
-│   ├── public/                # ملفات ثابتة
-│   └── src/                   # كود المصدر
-├── referance/                 # مراجع ومصادر إضافية
-└── README.md                  # هذا الملف
+ backend/
+    Data/               # SQLite + ملفات الأسئلة
+    Hubs/GameHub.cs     # SignalR Hub
+    Models/             # User, Question, PersistedSession
+    Migrations/         # EF Core
+    Services/
+       AuthService.cs  # JWT + تسجيل + ضيف
+       QuestionStore.cs
+       SessionManager.cs
+    Program.cs          # كل نقاط API
+
+ frontend/
+    app/
+       components/     # Buzzer, HexGrid, ScoreBoard, ...
+       contexts/       # AuthContext, ThemeContext
+       lib/            # api.ts, signalr.ts, tokenStore.ts
+       routes/         # home, game, lobby, admin, profile, login, register
+    public/
+        sounds/         #  ضع ملفات الصوت هنا (buzzer.mp3, timeup.mp3)
+
+ deploy-windows.bat
+ deploy-windows.ps1
+ docker-compose.yml
+ README.md
 ```
 
-## 📤 رفع ملفات الأسئلة (JSON)
+---
 
-يمكنك إضافة أسئلة مخصصة للعبة من خلال رفع ملف JSON بصيغة محددة:
+##  نظام الحسابات والمصادقة
 
-### صيغة ملف JSON
+### التسجيل (3 حقول فقط)
+| الحقل | الوصف |
+|-------|-------|
+| البريد الإلكتروني | للدخول والتعريف |
+| الاسم في اللعبة | يظهر للاعبين |
+| كلمة المرور | 6 أحرف على الأقل |
 
-يجب أن يكون الملف بتنسيق مصفوفة من الكائنات، حيث كل كائن يمثل سؤالاً واحداً:
+> اسم المستخدم يشتق تلقائيا من البريد: `ahmed@mail.com`  `ahmed`
 
+### وضع الضيف
+- أدخل اسمك وابدأ فورا
+- جلسة مؤقتة 24 ساعة
+- الإحصائيات لا تحفظ
+
+### الأدوار
+| الدور | الصلاحيات |
+|-------|-----------|
+| `Admin` | لوحة الإدارة + كل شيء |
+| `Player` | اللعب + الملف الشخصي |
+| `Guest` | اللعب فقط (مؤقت 24 ساعة) |
+
+---
+
+##  لوحة الإدارة (Admin)
+
+الوصول عبر `/admin`  يتطلب حسابا بدور `Admin`.
+
+**الميزات:**
+- جدول المستخدمين مع بحث وتصفية وفرز
+- تعديل الاسم والبريد والدور وحالة التفعيل
+- إعادة تعيين كلمة المرور
+- إدارة بنك الأسئلة (عرض / حذف / رفع JSON)
+- إحصائيات الخادم
+
+---
+
+##  تخصيص الأصوات
+
+ضع ملفاتك في `frontend/public/sounds/`  الكشف تلقائي:
+
+| الملف | الحدث |
+|-------|-------|
+| `buzzer.mp3` أو `buzzer.wav` | ضغط الجرس |
+| `timeup.mp3` أو `timeup.wav` | انتهاء الوقت |
+
+> ملفات بديلة مدعومة أيضا: `timer-end.mp3`, `timer-end.wav`
+
+```bash
+# تحويل من WAV إلى MP3
+ffmpeg -i input.wav -ab 128k buzzer.mp3
+```
+
+**نصائح:** MP3 أفضل توافقا  حجم < 100KB  جودة 128kbps
+
+---
+
+##  رفع ملفات الأسئلة (JSON)
+
+### صيغة الملف
 ```json
 [
   {
     "Id": "a01",
     "Letter": "أ",
-    "Question": "ما اسم أول إنسان خُلق وفق الديانات الإبراهيمية؟",
+    "Question": "ما اسم أول إنسان خلق وفق الديانات الإبراهيمية",
     "Answer": "آدم",
     "Category": "دين",
-    "Difficulty": "easy"
-  },
-  {
-    "Id": "a02",
-    "Letter": "أ",
-    "Question": "ما أكبر قارة في العالم؟",
-    "Answer": "آسيا",
-    "Category": "جغرافيا",
     "Difficulty": "easy"
   }
 ]
 ```
 
-### حقول السؤال
+| الحقل | القيم |
+|-------|-------|
+| `Difficulty` | `easy`  `medium`  `hard` |
+| `Letter` | حرف عربي واحد |
+| `Category` | نص حر |
 
-- **Id**: معرف فريد للسؤال (نص)
-- **Letter**: حرف السؤال (حرف عربي واحد)
-- **Question**: نص السؤال (نص)
-- **Answer**: نص الإجابة الصحيحة (نص)
-- **Category**: فئة السؤال (مثال: دين، جغرافيا، علوم، تاريخ، أدب)
-- **Difficulty**: مستوى الصعوبة (easy, medium, hard)
-
-### خطوات رفع الملف
-
-1. اذهب إلى لوحة التحكم في اللعبة
-2. سجل الدخول باستخدام كلمة المرور
-3. من قسم الأسئلة، اضغط على زر "رفع ملف JSON"
-4. اختر ملف JSON من جهازك
-5. سيتم التحقق من صيغة الملف وإضافة الأسئلة تلقائياً
-
-### ملاحظات هامة
-
-- يجب أن يكون الملف بامتداد `.json`
-- يتم إضافة الأسئلة الموجودة في الملف إلى الأسئلة الحالية (لا يتم استبدالها)
-- يجب التأكد من أن جميع الحقول الإلزامية موجودة في كل سؤال
-- يدعم الملف ترميز UTF-8 للغة العربية
-
-## 🔊 تخصيص أصوات المؤقت والجرس
-
-يمكنك تخصيص أصوات اللعبة (صوت الجرس وصوت انتهاء الوقت) باستخدام ملفات صوتية مخصصة:
-
-### تغيير أصوات اللعبة
-
-1. **اذهب إلى مجلد الواجهة الأمامية:**
-   ```bash
-   cd frontend/public
-   ```
-
-2. **ملفات الصوت المتاحة:**
-   - `buzzer.mp3`: صوت الجرس عند الضغط (موجود افتراضياً)
-   - `timer-end.mp3`: صوت انتهاء الوقت (يمكنك إضافته)
-
-3. **إضافة ملفات صوتية مخصصة:**
-   - يمكنك استخدام الصيغ المدعومة:
-     - MP3 (موصى به)
-     - WAV
-     - OGG
-     - AAC
-   - ضع ملفات الصوت في مجلد `frontend/public/`
-
-4. **ملاحظة حول الملفات المفقودة:**
-   - إذا لم يتم العثور على ملف الصوت، لن يتم تشغيل أي صوت
-   - لن يظهر أي خطأ للمستخدم، فقط رسالة في console المطور
-   - اللعبة ستستمر في العمل بشكل طبيعي بدون أصوات
-
-5. **تعديل الكود لاستخدام ملفات صوتية مخصصة (اختياري):**
-   
-   افتح الملف `frontend/app/routes/game.tsx` وابحث عن الدوال:
-   - `playBuzzerSound()`: لتغيير صوت الجرس
-   - `playTimerEndSound()`: لتغيير صوت انتهاء الوقت
-
-   مثال لتغيير صوت الجرس:
-   ```javascript
-   const playBuzzerSound = useCallback(() => {
-       try {
-           const audio = new Audio('/my-custom-buzzer.mp3'); // استبدل باسم ملفك
-           audio.volume = 0.3;
-           audio.play().catch((error) => {
-               console.log('Failed to play buzzer sound:', error);
-           });
-       } catch (error) {
-           console.log('Error creating buzzer audio:', error);
-       }
-   }, []);
-   ```
-
-6. **ضبط مستوى الصوت:**
-   - يمكنك تعديل قيمة `audio.volume` (بين 0.0 و 1.0)
-   - الصوت الافتراضي: 0.3 للجرس، 0.5 لانتهاء الوقت
-
-### نصائح هامة
-
-- **حجم الملف:** استخدم ملفات صوتية صغيرة الحجم (أقل من 100 كيلوبايت) لضمان سرعة التحميل
-- **الصيغة:** MP3 هي الأكثر توافقياً مع المتصفحات
-- **الجودة:** استخدم جودة صوت متوسطة (128 kbps) كتوازن بين الجودة والحجم
-- **الترخيص:** تأكد من أن الملفات الصوتية المستخدمة مرخصة للاستخدام التجاري إذا لزم الأمر
-- **الاختبار:** اختبر الأصوات في متصفحات مختلفة للتأكد من التوافق
-
-## �� واجهة برمجة التطبيقات (API)
-
-### نقاط النهاية الرئيسية
-
-#### اللعب والجلسات
-- `POST /api/sessions/create` - إنشاء جلسة جديدة
-- `POST /api/sessions/join` - الانضمام إلى جلسة
-- `POST /api/sessions/start` - بدء اللعبة
-
-#### إدارة اللعبة
-- `POST /api/game/selectCell` - اختيار خلية
-- `POST /api/game/answer` - تقديم إجابة
-- `POST /api/game/buzz` - الضغط على الجسر
-- `POST /api/game/skip` - تخطي السؤال
-
-#### إدارة اللاعبين
-- `POST /api/players/kick` - طرد لاعب
-- `POST /api/players/changeRole` - تغيير دور اللاعب
-
-### استخدام SignalR
-
-الاتصال بالـ Hub للتحديثات الحية:
-```javascript
-const connection = new signalR.HubConnectionBuilder()
-    .withUrl("/gameHub")
-    .build();
-
-connection.on("StateUpdated", (state) => {
-    // تحديث واجهة المستخدم
-});
-```
-
-## 🤝 المساهمة في المشروع
-
-نرحب بالمساهمات! اتبع الخطوات التالية:
-
-1. Fork المشروع
-2. إنشاء فرع جديد (`git checkout -b feature/AmazingFeature`)
-3. إجراء التغييرات
-4. Commit التغييرات (`git commit -m 'Add some AmazingFeature'`)
-5. الدفع إلى الفرع (`git push origin feature/AmazingFeature`)
-6. إنشاء Pull Request
-
-### قواعد المساهمة:
-- احترام نمط الكود الحالي
-- إضافة تعليقات للكود الجديد
-- تحديث الوثائق عند الضرورة
-- اختبار التغييرات جيداً
-
-## 📝 الترخيص
-
-هذا المشروع مرخص تحت ترخيص MIT - انظر ملف [LICENSE](LICENSE) للتفاصيل.
-
-## 🙏 الشكر والتقدير
-
-- جميع المساهمين في المشروع
-- مجتمع المصادر المفتوحة
-- مستخدمي اللعبة القيمين
-
-## 📞 للتواصل
-
-- البريد الإلكتروني: huroof@example.com
-- موقع الويب: https://huroof.example.com
-- تويتر: [@HuroofGame](https://twitter.com/HuroofGame)
+### طريقة الرفع
+1. افتح `/admin`
+2. قسم الأسئلة  "رفع ملف JSON"
+3. اختر الملف  يضاف دون حذف الموجود
 
 ---
 
-**ملاحظة**: هذا المشروع لا يزال قيد التطوير وقد تتغير بعض المميزات.
+##  واجهة برمجة التطبيقات (API)
+
+### المصادقة
+| الطريقة | المسار | الوصف |
+|--------|--------|-------|
+| POST | `/api/auth/register` | تسجيل (email, inGameName, password) |
+| POST | `/api/auth/login` | دخول (emailOrUsername, password) |
+| POST | `/api/auth/guest` | دخول كضيف (name) |
+| GET  | `/api/auth/me` | بيانات المستخدم الحالي |
+| PUT  | `/api/auth/profile` | تحديث الملف الشخصي |
+| POST | `/api/auth/change-password` | تغيير كلمة المرور |
+
+### SignalR (GameHub)
+```javascript
+const conn = new signalR.HubConnectionBuilder()
+    .withUrl("/gameHub", { accessTokenFactory: () => token })
+    .withAutomaticReconnect()
+    .build();
+
+conn.on("StateUpdated", (state) => { /* تحديث الواجهة */ });
+
+// أوامر اللاعب
+conn.invoke("Buzz");
+conn.invoke("JoinSession", sessionId, password, displayName);
+
+// أوامر مدير اللعبة
+conn.invoke("SelectCell", cellId);
+conn.invoke("SetQuestion", letter, question, answer, category, difficulty);
+conn.invoke("MarkCorrect");
+conn.invoke("MarkWrong");
+conn.invoke("ResetBuzzer");
+conn.invoke("OpenBuzzer");
+```
+
+---
+
+##  المساهمة
+
+```bash
+git checkout -b feature/my-feature
+git commit -m "feat: وصف التغيير"
+git push origin feature/my-feature
+# افتح Pull Request
+```
+
+---
+
+##  سجل التغييرات الرئيسية
+
+| التغيير | الوصف |
+|---------|-------|
+| تسجيل مبسط | 3 حقول فقط  بدون تأكيد كلمة المرور بدون إدخال اسم مستخدم |
+| جرس بلوحة المفاتيح | Space أو Enter يضغطان الجرس إضافة للماوس |
+| أصوات مخصصة | ضع MP3/WAV في `/sounds/`  يكتشف تلقائيا |
+| وضع الضيف | العب فورا بدون تسجيل اسم واحد فقط |
+| إصلاح تجميد تسجيل الخروج | SignalR يوقف الاتصال عند الخروج |
+| إصلاح الملف الشخصي | تحميل البيانات الصحيحة بعد المصادقة |
+| نظام JWT | رموز آمنة لكل دور (Admin / Player / Guest) |
+| لوحة الإدارة | إدارة المستخدمين والأسئلة والإحصائيات |
+| تصميم متجاوب | يعمل على الموبايل والتابلت والديسكتوب |
+| وضع ليلي | تبديل سهل بين الوضع الليلي والنهاري |
+
+---
+
+##  الترخيص
+
+MIT  انظر [LICENSE](LICENSE)

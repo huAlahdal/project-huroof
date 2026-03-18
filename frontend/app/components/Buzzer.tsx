@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect, useCallback } from "react";
 
 interface BuzzerProps {
     team: "orange" | "green" | null;
@@ -21,6 +21,22 @@ const Buzzer = memo(function Buzzer({
     lockReason = "game",
     onBuzz,
 }: BuzzerProps) {
+    const handleKeyDown = useCallback((e: KeyboardEvent) => {
+        if (e.code === "Space" || e.code === "Enter") {
+            // Don't fire if focus is in an input/textarea/button
+            const tag = (e.target as HTMLElement).tagName;
+            if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON" || tag === "SELECT") return;
+            e.preventDefault();
+            if (!isLocked && !isBuzzing && !iWon && !iLost && team) {
+                onBuzz();
+            }
+        }
+    }, [isLocked, isBuzzing, iWon, iLost, team, onBuzz]);
+
+    useEffect(() => {
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [handleKeyDown]);
     const isOrange = team === "orange";
     const primaryColor = isOrange ? "#f97316" : "#22c55e";
     const darkColor = isOrange ? "#ea580c" : "#16a34a";
@@ -139,6 +155,9 @@ const Buzzer = memo(function Buzzer({
             <p className="text-white/30 text-xs">
                 {isOrange ? "← يربط أفقياً →" : "↑ يربط عمودياً ↓"}
             </p>
+            {!isLocked && !iWon && !iLost && (
+                <p className="text-white/20 text-[10px]">Space / Enter للضغط بلوحة المفاتيح</p>
+            )}
         </div>
     );
 });

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import QuestionBrowser from "./QuestionBrowser";
+import UserIcon from "./UserIcon";
 import type { Question } from "~/lib/questions";
 
 interface GameMasterPanelProps {
@@ -46,15 +47,6 @@ const diffColor = (d: string | null) =>
     d === "easy" ? "#22c55e" : d === "medium" ? "#f59e0b" : "#ef4444";
 const diffLabel = (d: string | null) =>
     d === "easy" ? "سهل" : d === "medium" ? "متوسط" : d === "hard" ? "صعب" : "";
-
-// User icon component
-function UserIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
-    return (
-        <svg className={className} style={style} fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-        </svg>
-    );
-}
 
 function Section({
     icon, title, children, defaultOpen = true,
@@ -121,12 +113,9 @@ export default function GameMasterPanel({
     const [timerPhase, setTimerPhase] = useState<"first" | "second" | "expired" | "open" | null>(null);
     const [timerSeconds, setTimerSeconds] = useState(0);
 
-    // Timer effect
+    // Timer effect — computed from server timestamps so both GM and players see the same value
     useEffect(() => {
-        // Use server-provided timer state if available
         if (buzzedAt && buzzerLocked) {
-            // We'll rely on state updates from the server
-            // Just set up a local countdown for smooth display
             const firstDuration = buzzerTimerFirst ?? 5;
             const secondDuration = buzzerTimerSecond ?? 10;
 
@@ -151,7 +140,7 @@ export default function GameMasterPanel({
             };
 
             tick();
-            const id = setInterval(tick, 100);
+            const id = setInterval(tick, 250);
             return () => clearInterval(id);
         } else {
             setTimerPhase(null);
@@ -184,9 +173,9 @@ export default function GameMasterPanel({
                     {selectedLetter ? (
                         <div className="space-y-3">
                             {/* Letter Badge & Status */}
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 sm:gap-3">
                                 <div
-                                    className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl font-black text-white shrink-0"
+                                    className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center text-2xl sm:text-4xl font-black text-white shrink-0"
                                     style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)", boxShadow: "0 0 24px rgba(168,85,247,0.5)" }}
                                 >
                                     {selectedLetter}
@@ -227,7 +216,7 @@ export default function GameMasterPanel({
                             </div>
 
                             {/* Compact Actions */}
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 <button
                                     className="py-2.5 rounded-lg font-bold text-xs transition-all"
                                     style={{
@@ -362,7 +351,7 @@ export default function GameMasterPanel({
 
                 {/* ── Timer ──────────────────────────────────── */}
                 <Section icon="⏱" title="المؤقت" defaultOpen={false}>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
                             <label className="text-[10px] font-semibold block mb-1" style={{ color: "var(--text-3)" }}>
                                 الفريق الضاغط (ث)
@@ -468,7 +457,7 @@ export default function GameMasterPanel({
                                         }}
                                     >
                                         <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                                            <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
                                                  style={{
                                                      background: isOrange ? "rgba(251, 146, 60, 0.2)"
                                                                : isGreen ? "rgba(74, 222, 128, 0.2)"

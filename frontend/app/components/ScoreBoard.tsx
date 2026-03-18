@@ -1,4 +1,5 @@
 import { memo } from "react";
+import UserIcon from "./UserIcon";
 
 interface ScoreBoardProps {
     orangeName: string;
@@ -43,9 +44,7 @@ const ScoreBoard = memo(function ScoreBoard({
                             boxShadow: `0 0 14px ${t.team === "orange" ? "rgba(249,115,22,0.5)" : "rgba(34,197,94,0.5)"}`,
                         }}
                     >
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                        </svg>
+                        <UserIcon className="w-5 h-5" />
                     </div>
                     <p
                         className="font-black text-base leading-tight"
@@ -65,11 +64,11 @@ const ScoreBoard = memo(function ScoreBoard({
                 <p className="text-white/40 text-xs text-center font-semibold mb-2">كيفية الفوز</p>
                 <div className="space-y-1">
                     <div className="flex items-center gap-2 text-xs">
-                        <div className="w-3 h-3 rounded-sm bg-orange-500 flex-shrink-0" />
+                        <div className="w-3 h-3 rounded-sm bg-orange-500 shrink-0" />
                         <span className="text-white/60">يربط يميناً ويساراً</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                        <div className="w-3 h-3 rounded-sm bg-green-500 flex-shrink-0" />
+                        <div className="w-3 h-3 rounded-sm bg-green-500 shrink-0" />
                         <span className="text-white/60">يربط أعلى وأسفل</span>
                     </div>
                 </div>
