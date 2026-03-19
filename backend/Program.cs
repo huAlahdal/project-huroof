@@ -108,25 +108,28 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
+// ─── Shared origin check (used by CORS policy + early middleware) ─────
+static bool IsAllowedOrigin(string origin)
+{
+    if (!Uri.TryCreate(origin, UriKind.Absolute, out var originUri))
+        return false;
+
+    var host = originUri.Host;
+    return host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+           host.Equals("0.0.0.0", StringComparison.OrdinalIgnoreCase) ||
+           host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+           host.Equals("huroof.ddns.net", StringComparison.OrdinalIgnoreCase) ||
+           host.StartsWith("192.168.", StringComparison.OrdinalIgnoreCase) ||
+           host.StartsWith("10.", StringComparison.OrdinalIgnoreCase) ||
+           host.StartsWith("172.", StringComparison.OrdinalIgnoreCase);
+}
+
 // CORS for frontend
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.SetIsOriginAllowed(origin =>
-        {
-            if (!Uri.TryCreate(origin, UriKind.Absolute, out var originUri))
-                return false;
-
-            var host = originUri.Host;
-            return host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-                   host.Equals("0.0.0.0", StringComparison.OrdinalIgnoreCase) ||
-                   host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
-                   host.Equals("huroof.ddns.net", StringComparison.OrdinalIgnoreCase) ||
-                   host.StartsWith("192.168.", StringComparison.OrdinalIgnoreCase) ||
-                   host.StartsWith("10.", StringComparison.OrdinalIgnoreCase) ||
-                   host.StartsWith("172.", StringComparison.OrdinalIgnoreCase);
-        })
+        policy.SetIsOriginAllowed(IsAllowedOrigin)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -139,29 +142,53 @@ var startedAtUtc = DateTime.UtcNow;
 // Use response compression
 app.UseResponseCompression();
 
-// Apply CORS headers for all responses, including error responses
-app.UseCors();
+// ── Bullet-proof CORS: handle preflight & guarantee headers on every response ──
+// This runs before ALL other middleware so even 500s / startup errors carry
+// the proper Access-Control-* headers back to the browser.
+app.Use(async (context, next) =>
+{
+    var origin = context.Request.Headers.Origin.FirstOrDefault();
+    bool allowed = !string.IsNullOrEmpty(origin) && IsAllowedOrigin(origin);
 
-// Add authentication & authorization middleware
-app.UseAuthentication();
-app.UseAuthorization();
+    // 1. Short-circuit OPTIONS preflight immediately
+    if (allowed && context.Request.Method.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.StatusCode = 204;
+        context.Response.Headers["Access-Control-Allow-Origin"] = origin!;
+        context.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
+        context.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept";
+        context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+        context.Response.Headers["Access-Control-Max-Age"] = "86400";
+        context.Response.Headers["Vary"] = "Origin";
+        return; // done – nothing else runs
+    }
 
+    // 2. For non-preflight requests, register a callback that fires just
+    //    before the response is sent so CORS headers are present even on
+    //    error responses (500, 401, etc.)
+    if (allowed)
+    {
+        context.Response.OnStarting(() =>
+        {
+            if (!context.Response.Headers.ContainsKey("Access-Control-Allow-Origin"))
+            {
+                context.Response.Headers["Access-Control-Allow-Origin"] = origin!;
+                context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+                context.Response.Headers["Vary"] = "Origin";
+            }
+            return Task.CompletedTask;
+        });
+    }
+
+    await next();
+});
+
+// Global exception handler (before CORS middleware so its response still
+// gets the CORS headers injected by the OnStarting callback above)
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
     {
-        // Manually apply CORS headers here because the exception handler inner
-        // pipeline does NOT pass through the outer UseCors() middleware.
-        var origin = context.Request.Headers.Origin.FirstOrDefault();
-        if (!string.IsNullOrEmpty(origin))
-        {
-            context.Response.Headers["Access-Control-Allow-Origin"] = origin;
-            context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
-            context.Response.Headers["Access-Control-Allow-Headers"] = "*";
-            context.Response.Headers["Access-Control-Allow-Methods"] = "*";
-            context.Response.Headers["Vary"] = "Origin";
-        }
-
         var exceptionFeature = context.Features.Get<IExceptionHandlerPathFeature>();
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         context.Response.ContentType = "application/json";
@@ -179,6 +206,13 @@ app.UseExceptionHandler(errorApp =>
         await context.Response.WriteAsJsonAsync(response);
     });
 });
+
+// Standard CORS middleware (handles normal non-error responses)
+app.UseCors();
+
+// Add authentication & authorization middleware
+app.UseAuthentication();
+app.UseAuthorization();
 
 using (var scope = app.Services.CreateScope())
 {
