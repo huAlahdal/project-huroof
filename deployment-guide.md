@@ -41,7 +41,7 @@ IIS will serve both your frontend and proxy your backend.
 5. You need to copy the .db file from the bin folder.
 
 ```bash
-dotnet ef migrations add initialCreate -o migrations
+dotnet ef migrations add InitialCreate -o migrations
 dotnet ef database update
 dotnet publish -c Release -o ./publish
 ```
