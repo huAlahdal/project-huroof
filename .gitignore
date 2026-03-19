@@ -116,4 +116,4 @@ temp/
 backend/publish/
 # Ignore frontend build and public outputs
 frontend/build/
-frontend/public/
+# frontend/public/

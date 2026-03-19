@@ -38,6 +38,13 @@ IIS will serve both your frontend and proxy your backend.
 2. Open **IIS Manager**
 3. Create a new **Application Pool** → set **"No Managed Code"**
 4. Add a new **Website**, point it to your `./publish` folder, set a port (e.g., `5000`)
+5. You need to copy the .db file from the bin folder.
+
+```bash
+dotnet ef migrations add initialCreate -o migrations
+dotnet ef database update
+dotnet publish -c Release -o ./publish
+```
 
 **Alternatively**, run it as a background Windows service using NSSM:
 
@@ -47,6 +54,10 @@ nssm install MyBackend "dotnet" "C:\path\to\publish\YourApp.dll"
 nssm start MyBackend
 ```
 
+Might need to give permission to the iis to read and write to the data folder
+```bash
+icacls "C:\inetpub\project-huroof\backend\publish\Data" /grant "IIS AppPool\Huroof:(OI)(CI)F" /T
+```
 ---
 
 ## Step 4: Deploy the React Frontend in IIS
