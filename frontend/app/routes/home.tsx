@@ -220,20 +220,19 @@ export default function HomePage() {
 
   return (
     <div className="game-bg min-h-screen relative overflow-hidden flex flex-col items-center justify-center px-4">
-      {/* Background hex decorations */}
+      {/* Background letter decorations */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {BG_LETTERS.map((letter, i) => (
           <div
             key={i}
-            className="absolute flex items-center justify-center font-black text-base select-none"
+            className="absolute flex items-center justify-center font-black select-none"
             style={{
               left: `${(i * 7.3 + 2) % 94}%`,
               top: `${(i * 11.7 + 4) % 88}%`,
-              width: 52, height: 60,
-              clipPath: "polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%)",
-              backgroundColor: BG_COLORS[i % BG_COLORS.length],
-              color: "#fff",
-              opacity: 0.06,
+              fontSize: `${2.5 + (i % 3) * 0.5}rem`,
+              color: BG_COLORS[i % BG_COLORS.length],
+              opacity: 0.15,
+              transform: `rotate(${i % 2 === 0 ? 15 : -10}deg)`,
               animation: `hexPulse ${3 + i * 0.15}s ease-in-out ${i * 0.06}s infinite`,
             }}
           >
