@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import type { Question } from "~/lib/questions";
-import { fetchQuestionsFromBackend, CATEGORIES } from "~/lib/questions";
+import { fetchQuestionsFromBackend } from "~/lib/questions";
 
 interface QuestionBrowserProps {
     letter: string;

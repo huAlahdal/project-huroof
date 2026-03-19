@@ -6,7 +6,7 @@ interface ChangeTeamModalProps {
     currentTeamName: string;
     orangeTeamName: string;
     greenTeamName: string;
-    onChangeTeam: (cellId: string, newTeam: "orange" | "green") => void;
+    onChangeTeam: (cellId: string, newTeam: "orange" | "green" | "none") => void;
 }
 
 export default function ChangeTeamModal({
@@ -21,7 +21,7 @@ export default function ChangeTeamModal({
 }: ChangeTeamModalProps) {
     if (!isOpen) return null;
 
-    const handleTeamChange = (newTeam: "orange" | "green") => {
+    const handleTeamChange = (newTeam: "orange" | "green" | "none") => {
         onChangeTeam(cellId, newTeam);
         onClose();
     };
@@ -142,9 +142,18 @@ export default function ChangeTeamModal({
                 {/* Cancel button */}
                 <button
                     onClick={onClose}
-                    className="w-full mt-4 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white/70 hover:text-white font-semibold"
+                    className="w-full mt-1 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white/70 hover:text-white font-semibold"
                 >
                     إلغاء
+                </button>
+
+                {/* Clear / Neutral button */}
+                <button
+                    onClick={() => handleTeamChange("none")}
+                    className="w-full p-3 rounded-xl border-2 border-red-500/30 hover:border-red-400/60 bg-red-500/5 hover:bg-red-500/10 transition-all text-red-400 hover:text-red-300 font-semibold flex items-center justify-center gap-2"
+                >
+                    <span>🗑</span>
+                    <span>مسح الخلية (إرجاعها محايدة)</span>
                 </button>
             </div>
         </div>

@@ -6,7 +6,11 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using System.IO.Compression;
+using System.Security.Claims;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,7 +49,8 @@ builder.Services.AddSignalR(options =>
     options.MaximumParallelInvocationsPerClient = 1;
 }).AddMessagePackProtocol(); // Use MessagePack for better performance
 builder.Services.AddSingleton<SessionManager>();
-builder.Services.AddSingleton<QuestionStore>();
+builder.Services.AddHostedService<BuzzerWatchdog>();
+builder.Services.AddSingleton<AuthService>();
 
 // Resolve an absolute path for the SQLite DB so it works correctly on any
 // deployed environment regardless of the process working directory.
@@ -66,6 +71,42 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     
     // Connection pooling is automatic with SQLite
 }, ServiceLifetime.Scoped);
+
+// ─── JWT Authentication ────────────────────────────────────
+var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "HuroofGameDefaultSecretKey_ChangeInProduction_2026!";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "huroof-backend";
+var jwtKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtIssuer,
+            IssuerSigningKey = jwtKey
+        };
+
+        // Allow SignalR to receive JWT from query string
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/gamehub"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
+builder.Services.AddAuthorization();
 
 // CORS for frontend
 builder.Services.AddCors(options =>
@@ -93,12 +134,17 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+var startedAtUtc = DateTime.UtcNow;
 
 // Use response compression
 app.UseResponseCompression();
 
 // Apply CORS headers for all responses, including error responses
 app.UseCors();
+
+// Add authentication & authorization middleware
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseExceptionHandler(errorApp =>
 {
@@ -120,14 +166,17 @@ app.UseExceptionHandler(errorApp =>
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         context.Response.ContentType = "application/json";
 
-        // Always include detail so deployment issues are diagnosable.
-        // Remove or gate on IsDevelopment() once stable.
-        await context.Response.WriteAsJsonAsync(new
+        var response = new { error = "Internal server error" } as object;
+        if (app.Environment.IsDevelopment())
         {
-            error = "Internal server error",
-            detail = exceptionFeature?.Error?.Message,
-            type = exceptionFeature?.Error?.GetType().Name
-        });
+            response = new
+            {
+                error = "Internal server error",
+                detail = exceptionFeature?.Error?.Message,
+                type = exceptionFeature?.Error?.GetType().Name
+            };
+        }
+        await context.Response.WriteAsJsonAsync(response);
     });
 });
 
@@ -145,41 +194,63 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// Seed default admin user
+{
+    var authService = app.Services.GetRequiredService<AuthService>();
+    await authService.SeedAdminAsync();
+}
+
 // ─── SignalR hub ───────────────────────────────────────────
 app.MapHub<GameHub>("/gamehub");
 
 // ─── Health check ──────────────────────────────────────────
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
-// ─── Admin auth helper ─────────────────────────────────────
-const string AdminUser = "admin";
-const string AdminPass = "admin";
+// ─── Auth helpers ──────────────────────────────────────────
 
 bool IsAdmin(HttpRequest request)
 {
-    var auth = request.Headers.Authorization.FirstOrDefault();
-    
-    // Fallback to query string ?token=... for direct links like export
-    if (string.IsNullOrEmpty(auth) && request.Query.TryGetValue("token", out var tokenVal))
-    {
-        auth = $"Basic {tokenVal}";
-    }
-    
-    if (string.IsNullOrEmpty(auth)) return false;
-    // Expect "Basic base64(user:pass)"
-    if (!auth.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase)) return false;
-    try
-    {
-        var decoded = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(auth[6..]));
-        var parts = decoded.Split(':', 2);
-        return parts.Length == 2 && parts[0] == AdminUser && parts[1] == AdminPass;
-    }
-    catch { return false; }
+    var user = request.HttpContext.User;
+    if (user?.Identity?.IsAuthenticated != true) return false;
+    return AuthService.IsAdminFromClaims(user);
+}
+
+string? GetUserId(HttpRequest request)
+{
+    return AuthService.GetUserIdFromClaims(request.HttpContext.User);
+}
+
+bool IsAuthenticated(HttpRequest request)
+{
+    return request.HttpContext.User?.Identity?.IsAuthenticated == true;
 }
 
 IResult Unauthorized() => Results.Json(new { error = "Unauthorized" }, statusCode: 401);
 
 IResult BadRole() => Results.BadRequest(new { error = "Invalid role" });
+
+object ToUserDto(User u) => new
+{
+    u.Id, u.Email, u.Username, u.InGameName,
+    Role = u.Role.ToString().ToLowerInvariant(),
+    u.GamesPlayed, u.GamesWon
+};
+
+object ToAdminUserDto(User u) => new
+{
+    u.Id, u.Email, u.Username, u.InGameName,
+    Role = u.Role.ToString().ToLowerInvariant(),
+    u.GamesPlayed, u.GamesWon, u.IsActive,
+    u.CreatedAt, u.LastLoginAt
+};
+
+object ToQuestionDto(Question q) => new
+{
+    q.Id, q.Letter,
+    Question = q.QuestionText,
+    q.Answer, q.Category, q.Difficulty,
+    q.CreatedAt, q.UpdatedAt
+};
 
 PlayerRole? ParseRole(string role)
 {
@@ -212,15 +283,148 @@ object BuildSessionSummary(GameSession s)
     };
 }
 
+// ═══════════════════════════════════════════════════════════
+// ─── Auth Endpoints ────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+// ─── Guest Token ───────────────────────────────────────────
+
+app.MapPost("/api/auth/guest", async (AuthService auth, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<GuestRequest>();
+    var name = body?.Name?.Trim();
+    if (string.IsNullOrWhiteSpace(name) || name.Length < 2 || name.Length > 24)
+        return Results.BadRequest(new { error = "الاسم يجب أن يكون بين 2 و 24 حرفاً" });
+
+    var token = auth.GenerateGuestToken(name);
+    return Results.Ok(new
+    {
+        token,
+        user = new { id = (string?)null, email = (string?)null, username = (string?)null, inGameName = name, role = "guest", gamesPlayed = 0, gamesWon = 0 },
+        isGuest = true
+    });
+});
+
+app.MapPost("/api/auth/register", async (AuthService auth, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<RegisterRequest>();
+    if (body == null) return Results.BadRequest(new { error = "بيانات غير صالحة" });
+
+    var (user, error) = await auth.RegisterAsync(body.Email, body.InGameName, body.Password);
+    if (user == null) return Results.BadRequest(new { error });
+
+    var token = auth.GenerateToken(user);
+    return Results.Ok(new { token, user = ToUserDto(user) });
+});
+
+app.MapPost("/api/auth/login", async (AuthService auth, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<LoginRequest>();
+    if (body == null) return Results.BadRequest(new { error = "بيانات غير صالحة" });
+
+    var (user, error) = await auth.LoginAsync(body.EmailOrUsername, body.Password);
+    if (user == null) return Results.BadRequest(new { error });
+
+    var token = auth.GenerateToken(user);
+    return Results.Ok(new { token, user = ToUserDto(user) });
+});
+
+app.MapGet("/api/auth/me", async (AuthService auth, HttpRequest req) =>
+{
+    if (!IsAuthenticated(req)) return Unauthorized();
+    var userId = GetUserId(req);
+    if (userId == null) return Unauthorized();
+
+    var user = await auth.GetUserByIdAsync(userId);
+    if (user == null) return Results.NotFound(new { error = "المستخدم غير موجود" });
+
+    return Results.Ok(ToUserDto(user));
+});
+
+app.MapPut("/api/auth/me", async (AuthService auth, HttpRequest req) =>
+{
+    if (!IsAuthenticated(req)) return Unauthorized();
+    var userId = GetUserId(req);
+    if (userId == null) return Unauthorized();
+
+    var body = await req.ReadFromJsonAsync<UpdateProfileRequest>();
+    if (body == null) return Results.BadRequest(new { error = "بيانات غير صالحة" });
+
+    var (user, error) = await auth.UpdateProfileAsync(userId, body.InGameName, body.Email);
+    if (user == null) return Results.BadRequest(new { error });
+
+    var token = auth.GenerateToken(user);
+    return Results.Ok(new { token, user = ToUserDto(user) });
+});
+
+app.MapPut("/api/auth/me/password", async (AuthService auth, HttpRequest req) =>
+{
+    if (!IsAuthenticated(req)) return Unauthorized();
+    var userId = GetUserId(req);
+    if (userId == null) return Unauthorized();
+
+    var body = await req.ReadFromJsonAsync<ChangePasswordRequest>();
+    if (body == null) return Results.BadRequest(new { error = "بيانات غير صالحة" });
+
+    var error = await auth.ChangePasswordAsync(userId, body.CurrentPassword, body.NewPassword);
+    if (error != null) return Results.BadRequest(new { error });
+
+    return Results.Ok(new { success = true });
+});
+
+// ─── Active Session Check ────────────────────────────────────
+
+app.MapGet("/api/sessions/active", (SessionManager sessions, HttpRequest req) =>
+{
+    if (!IsAuthenticated(req)) return Unauthorized();
+    var userId = GetUserId(req);
+    if (userId == null) return Unauthorized();
+
+    var result = sessions.FindSessionByUserId(userId);
+    if (result == null)
+        return Results.Ok(new { inSession = false });
+
+    var (session, player) = result.Value;
+    return Results.Ok(new
+    {
+        inSession = true,
+        sessionId = session.Id,
+        phase = session.Phase.ToString().ToLowerInvariant(),
+        playerId = player.Id,
+        playerRole = player.Role.ToString().ToLowerInvariant(),
+        playerCount = session.Players.Count(p => !string.IsNullOrEmpty(p.ConnectionId)),
+        orangeScore = session.OrangeScore,
+        greenScore = session.GreenScore,
+    });
+});
+
+app.MapPost("/api/sessions/leave", (SessionManager sessions, HttpRequest req) =>
+{
+    if (!IsAuthenticated(req)) return Unauthorized();
+    var userId = GetUserId(req);
+    if (userId == null) return Unauthorized();
+
+    var result = sessions.FindSessionByUserId(userId);
+    if (result == null)
+        return Results.Ok(new { success = true, message = "Not in any session" });
+
+    var (session, _) = result.Value;
+    var removed = sessions.RemovePlayerByUserId(session.Id, userId);
+    return Results.Ok(new { success = removed, sessionId = session.Id });
+});
+
 // ─── Admin: Overview ───────────────────────────────────────
 
-app.MapGet("/api/admin/overview", (QuestionStore store, SessionManager sessions, HttpRequest req) =>
+app.MapGet("/api/admin/overview", async (ApplicationDbContext db, SessionManager sessions, HttpRequest req) =>
 {
     if (!IsAdmin(req)) return Unauthorized();
     var allSessions = sessions.GetAllSessions().ToList();
+    var questionCount = await db.Questions.CountAsync();
+    var userCount = await db.Users.CountAsync();
     return Results.Ok(new
     {
-        questionCount = store.GetAll().Count,
+        questionCount,
+        userCount,
         sessionCount = allSessions.Count,
         playerCount = allSessions.Sum(s => s.Players.Count),
         sessionsByPhase = allSessions
@@ -243,7 +447,7 @@ app.MapGet("/api/questions", async (ApplicationDbContext db, HttpRequest req) =>
     var difficulty = req.Query["difficulty"].ToString();
     var search    = req.Query["search"].ToString();
 
-    var query = db.Questions.AsNoTracking().AsQueryable();
+    var query = db.Questions.AsQueryable();
 
     if (!string.IsNullOrWhiteSpace(letter))
         query = query.Where(q => q.Letter.ToLower() == letter.ToLower());
@@ -284,7 +488,6 @@ app.MapGet("/api/questions/random", async (ApplicationDbContext db, HttpRequest 
         return Results.BadRequest(new { error = "Letter parameter required" });
 
     var questions = await db.Questions
-        .AsNoTracking()
         .Where(q => q.Letter.ToLower() == letter.ToLower())
         .Select(q => new
         {
@@ -304,7 +507,7 @@ app.MapGet("/api/questions/random", async (ApplicationDbContext db, HttpRequest 
     return Results.Ok(random);
 });
 
-// ─── Admin: Authentication ───────────────────────────────────
+// ─── Admin: Authentication (JWT-based) ───────────────────────
 
 app.MapPost("/api/admin/auth", (HttpRequest req) =>
 {
@@ -312,120 +515,35 @@ app.MapPost("/api/admin/auth", (HttpRequest req) =>
     return Results.Ok(new { success = true });
 });
 
-// ─── Admin: Questions ──────────────────────────────────────
+// ─── Admin: Questions (DB only) ────────────────────────────
 
 // GET all questions
-app.MapGet("/api/admin/questions", (QuestionStore store, HttpRequest req) =>
-{
-    if (!IsAdmin(req)) return Unauthorized();
-    return Results.Ok(store.GetAll());
-});
-
-// POST create question
-app.MapPost("/api/admin/questions", async (QuestionStore store, HttpRequest req) =>
-{
-    if (!IsAdmin(req)) return Unauthorized();
-    var q = await req.ReadFromJsonAsync<QuestionItem>();
-    if (q == null) return Results.BadRequest();
-    var created = store.Add(q);
-    return Results.Created($"/api/admin/questions/{created.Id}", created);
-});
-
-// POST bulk import (replace all)
-app.MapPost("/api/admin/questions/import", async (QuestionStore store, HttpRequest req) =>
-{
-    if (!IsAdmin(req)) return Unauthorized();
-    var items = await req.ReadFromJsonAsync<List<QuestionItem>>();
-    if (items == null) return Results.BadRequest();
-    store.ImportAll(items);
-    return Results.Ok(new { count = items.Count });
-});
-
-// POST bulk add (append)
-app.MapPost("/api/admin/questions/bulk", async (QuestionStore store, HttpRequest req) =>
-{
-    if (!IsAdmin(req)) return Unauthorized();
-    var items = await req.ReadFromJsonAsync<List<QuestionItem>>();
-    if (items == null) return Results.BadRequest();
-    var count = store.BulkAdd(items);
-    return Results.Ok(new { count });
-});
-
-// PUT update question
-app.MapPut("/api/admin/questions/{id}", async (string id, QuestionStore store, HttpRequest req) =>
-{
-    if (!IsAdmin(req)) return Unauthorized();
-    var q = await req.ReadFromJsonAsync<QuestionItem>();
-    if (q == null) return Results.BadRequest();
-    var updated = q with { Id = id };
-    return store.Update(updated) ? Results.Ok(updated) : Results.NotFound();
-});
-
-// DELETE question
-app.MapDelete("/api/admin/questions/{id}", (string id, QuestionStore store, HttpRequest req) =>
-{
-    if (!IsAdmin(req)) return Unauthorized();
-    return store.Delete(id) ? Results.NoContent() : Results.NotFound();
-});
-
-// GET export questions as JSON file
-app.MapGet("/api/admin/questions/export", (QuestionStore store, HttpRequest req) =>
-{
-    if (!IsAdmin(req)) return Unauthorized();
-    var json = System.Text.Json.JsonSerializer.Serialize(store.GetAll(), new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-    return Results.File(System.Text.Encoding.UTF8.GetBytes(json), "application/json", "huroof-questions.json");
-});
-
-// ─── Database-backed Questions API ───────────────────────────
-
-// GET all questions from database (with caching)
-app.MapGet("/api/admin/db/questions", async (ApplicationDbContext db, HttpRequest req) =>
+app.MapGet("/api/admin/questions", async (ApplicationDbContext db, HttpRequest req) =>
 {
     if (!IsAdmin(req)) return Unauthorized();
     
     var questions = await db.Questions
-        .AsNoTracking() // Performance: no change tracking needed for read-only
         .OrderBy(q => q.Letter)
         .ThenBy(q => q.Category)
         .ThenBy(q => q.Difficulty)
         .ToListAsync();
     
-    return Results.Ok(questions.Select(q => new
-    {
-        q.Id,
-        q.Letter,
-        Question = q.QuestionText,
-        q.Answer,
-        q.Category,
-        q.Difficulty,
-        q.CreatedAt,
-        q.UpdatedAt
-    }));
+    return Results.Ok(questions.Select(ToQuestionDto));
 });
 
-// GET question by ID from database
-app.MapGet("/api/admin/db/questions/{id}", async (string id, ApplicationDbContext db, HttpRequest req) =>
+// GET question by ID
+app.MapGet("/api/admin/questions/{id}", async (string id, ApplicationDbContext db, HttpRequest req) =>
 {
     if (!IsAdmin(req)) return Unauthorized();
     
     var question = await db.Questions.FindAsync(id);
     if (question == null) return Results.NotFound();
     
-    return Results.Ok(new
-    {
-        question.Id,
-        question.Letter,
-        Question = question.QuestionText,
-        question.Answer,
-        question.Category,
-        question.Difficulty,
-        question.CreatedAt,
-        question.UpdatedAt
-    });
+    return Results.Ok(ToQuestionDto(question));
 });
 
-// POST create new question in database
-app.MapPost("/api/admin/db/questions", async (ApplicationDbContext db, HttpRequest req) =>
+// POST create question
+app.MapPost("/api/admin/questions", async (ApplicationDbContext db, HttpRequest req) =>
 {
     if (!IsAdmin(req)) return Unauthorized();
     
@@ -447,21 +565,11 @@ app.MapPost("/api/admin/db/questions", async (ApplicationDbContext db, HttpReque
     db.Questions.Add(question);
     await db.SaveChangesAsync();
     
-    return Results.Created($"/api/admin/db/questions/{question.Id}", new
-    {
-        question.Id,
-        question.Letter,
-        Question = question.QuestionText,
-        question.Answer,
-        question.Category,
-        question.Difficulty,
-        question.CreatedAt,
-        question.UpdatedAt
-    });
+    return Results.Created($"/api/admin/questions/{question.Id}", ToQuestionDto(question));
 });
 
-// PUT update question in database
-app.MapPut("/api/admin/db/questions/{id}", async (string id, ApplicationDbContext db, HttpRequest req) =>
+// PUT update question
+app.MapPut("/api/admin/questions/{id}", async (string id, ApplicationDbContext db, HttpRequest req) =>
 {
     if (!IsAdmin(req)) return Unauthorized();
     
@@ -471,7 +579,6 @@ app.MapPut("/api/admin/db/questions/{id}", async (string id, ApplicationDbContex
     var model = await req.ReadFromJsonAsync<UpdateQuestionRequest>();
     if (model == null) return Results.BadRequest();
     
-    // Create a new question record with updated values
     var updatedQuestion = new Question
     {
         Id = question.Id,
@@ -484,25 +591,14 @@ app.MapPut("/api/admin/db/questions/{id}", async (string id, ApplicationDbContex
         UpdatedAt = DateTime.UtcNow
     };
     
-    // Update the entity
     db.Entry(question).CurrentValues.SetValues(updatedQuestion);
     await db.SaveChangesAsync();
     
-    return Results.Ok(new
-    {
-        updatedQuestion.Id,
-        updatedQuestion.Letter,
-        Question = updatedQuestion.QuestionText,
-        updatedQuestion.Answer,
-        updatedQuestion.Category,
-        updatedQuestion.Difficulty,
-        updatedQuestion.CreatedAt,
-        updatedQuestion.UpdatedAt
-    });
+    return Results.Ok(ToQuestionDto(updatedQuestion));
 });
 
-// DELETE question from database
-app.MapDelete("/api/admin/db/questions/{id}", async (string id, ApplicationDbContext db, HttpRequest req) =>
+// DELETE question
+app.MapDelete("/api/admin/questions/{id}", async (string id, ApplicationDbContext db, HttpRequest req) =>
 {
     if (!IsAdmin(req)) return Unauthorized();
     
@@ -515,38 +611,16 @@ app.MapDelete("/api/admin/db/questions/{id}", async (string id, ApplicationDbCon
     return Results.NoContent();
 });
 
-// POST bulk add (append) - adds questions without replacing existing ones
-app.MapPost("/api/admin/db/questions/bulk-add", async (ApplicationDbContext db, HttpRequest req) =>
+// POST bulk import (replace all — clears existing, then adds new)
+app.MapPost("/api/admin/questions/import", async (ApplicationDbContext db, HttpRequest req) =>
 {
     if (!IsAdmin(req)) return Unauthorized();
     
     var items = await req.ReadFromJsonAsync<List<CreateQuestionRequest>>();
     if (items == null) return Results.BadRequest();
     
-    var questions = items.Select(model => new Question
-    {
-        Id = Guid.NewGuid().ToString("N")[..8],
-        Letter = model.Letter?.ToUpper() ?? "",
-        QuestionText = model.Question,
-        Answer = model.Answer,
-        Category = model.Category ?? "عام",
-        Difficulty = model.Difficulty ?? "medium",
-        CreatedAt = DateTime.UtcNow
-    }).ToList();
-    
-    await db.Questions.AddRangeAsync(questions);
-    await db.SaveChangesAsync();
-    
-    return Results.Ok(new { count = questions.Count, total = await db.Questions.CountAsync() });
-});
-
-// POST bulk import questions to database
-app.MapPost("/api/admin/db/questions/import", async (ApplicationDbContext db, HttpRequest req) =>
-{
-    if (!IsAdmin(req)) return Unauthorized();
-    
-    var items = await req.ReadFromJsonAsync<List<CreateQuestionRequest>>();
-    if (items == null) return Results.BadRequest();
+    // Clear existing questions first
+    await db.Questions.ExecuteDeleteAsync();
     
     var questions = items.Select(model => new Question
     {
@@ -565,8 +639,20 @@ app.MapPost("/api/admin/db/questions/import", async (ApplicationDbContext db, Ht
     return Results.Ok(new { count = questions.Count });
 });
 
-// GET categories from database (optimized)
-app.MapGet("/api/admin/db/questions/categories", async (ApplicationDbContext db, HttpRequest req) =>
+// GET export questions as JSON file
+app.MapGet("/api/admin/questions/export", async (ApplicationDbContext db, HttpRequest req) =>
+{
+    if (!IsAdmin(req)) return Unauthorized();
+    var questions = await db.Questions.OrderBy(q => q.Letter).ToListAsync();
+    var json = System.Text.Json.JsonSerializer.Serialize(questions.Select(q => new
+    {
+        q.Id, q.Letter, Question = q.QuestionText, q.Answer, q.Category, q.Difficulty
+    }), new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+    return Results.File(System.Text.Encoding.UTF8.GetBytes(json), "application/json", "huroof-questions.json");
+});
+
+// GET categories
+app.MapGet("/api/admin/questions/categories", async (ApplicationDbContext db, HttpRequest req) =>
 {
     if (!IsAdmin(req)) return Unauthorized();
     
@@ -580,52 +666,52 @@ app.MapGet("/api/admin/db/questions/categories", async (ApplicationDbContext db,
     return Results.Ok(categories);
 });
 
-// POST migrate from JSON to database
-app.MapPost("/api/admin/db/questions/migrate", async (ApplicationDbContext db, QuestionStore store, HttpRequest req) =>
+// DELETE all questions
+app.MapDelete("/api/admin/questions", async (ApplicationDbContext db, HttpRequest req) =>
 {
     if (!IsAdmin(req)) return Unauthorized();
     
-    // Get all questions from JSON store
-    var jsonQuestions = store.GetAll();
-    
-    // Check if database already has questions
-    var existingCount = await db.Questions.CountAsync();
-    if (existingCount > 0)
-    {
-        return Results.BadRequest(new { error = $"Database already has {existingCount} questions. Clear it first." });
-    }
-    
-    // Convert to database entities
-    var dbQuestions = jsonQuestions.Select(q => new Question
-    {
-        Id = q.Id,
-        Letter = q.Letter,
-        QuestionText = q.Question,
-        Answer = q.Answer,
-        Category = q.Category,
-        Difficulty = q.Difficulty,
-        CreatedAt = DateTime.UtcNow
-    }).ToList();
-    
-    await db.Questions.AddRangeAsync(dbQuestions);
-    await db.SaveChangesAsync();
-    
-    return Results.Ok(new { 
-        migrated = dbQuestions.Count,
-        message = "Successfully migrated questions from JSON to database"
-    });
-});
-
-// DELETE all questions from database
-app.MapDelete("/api/admin/db/questions", async (ApplicationDbContext db, HttpRequest req) =>
-{
-    if (!IsAdmin(req)) return Unauthorized();
-    
-    var count = await db.Questions.CountAsync();
-    db.Questions.RemoveRange(db.Questions);
-    await db.SaveChangesAsync();
+    var count = await db.Questions.ExecuteDeleteAsync();
     
     return Results.Ok(new { deleted = count });
+});
+
+// ─── Admin: Users ──────────────────────────────────────────
+
+app.MapGet("/api/admin/users", async (AuthService auth, HttpRequest req) =>
+{
+    if (!IsAdmin(req)) return Unauthorized();
+    var users = await auth.GetAllUsersAsync();
+    return Results.Ok(users.Select(ToAdminUserDto));
+});
+
+app.MapPut("/api/admin/users/{userId}", async (string userId, AuthService auth, HttpRequest req) =>
+{
+    if (!IsAdmin(req)) return Unauthorized();
+    var body = await req.ReadFromJsonAsync<AdminUserUpdateRequest>();
+    if (body == null) return Results.BadRequest();
+    var (user, error) = await auth.AdminUpdateUserAsync(userId, body.InGameName, body.Email, body.Username, body.Role, body.IsActive);
+    if (user == null) return Results.BadRequest(new { error });
+    return Results.Ok(ToAdminUserDto(user));
+});
+
+app.MapDelete("/api/admin/users/{userId}", async (string userId, AuthService auth, HttpRequest req) =>
+{
+    if (!IsAdmin(req)) return Unauthorized();
+    if (userId == "admin001") return Results.BadRequest(new { error = "لا يمكن حذف المدير الرئيسي" });
+    var deleted = await auth.AdminDeleteUserAsync(userId);
+    if (!deleted) return Results.NotFound();
+    return Results.NoContent();
+});
+
+app.MapPut("/api/admin/users/{userId}/password", async (string userId, AuthService auth, HttpRequest req) =>
+{
+    if (!IsAdmin(req)) return Unauthorized();
+    var body = await req.ReadFromJsonAsync<AdminResetPasswordRequest>();
+    if (body == null) return Results.BadRequest();
+    var error = await auth.AdminResetPasswordAsync(userId, body.NewPassword);
+    if (error != null) return Results.BadRequest(new { error });
+    return Results.Ok(new { success = true });
 });
 
 // ─── Admin: Sessions ───────────────────────────────────────
@@ -772,7 +858,7 @@ app.MapGet("/api/admin/server", (HttpRequest req) =>
         machineName = Environment.MachineName,
         processId = Environment.ProcessId,
         environment = app.Environment.EnvironmentName,
-        startedAtUtc = DateTime.UtcNow,
+        startedAtUtc,
         osVersion = Environment.OSVersion.VersionString,
         isRestartSupported = false,
         availableActions = new[] { "shutdown" }
@@ -791,26 +877,3 @@ app.MapPost("/api/admin/server/shutdown", async (IHostApplicationLifetime lifeti
 });
 
 app.Run();
-
-public sealed record AdminSessionSettingsRequest(int? GridSize, int? TotalRounds);
-public sealed record AdminSessionStartRequest(int? GridSize, int? TotalRounds, int? TimerFirst, int? TimerSecond);
-public sealed record AdminPlayerUpdateRequest(string? Name, string? Role);
-
-// Question API request models
-public sealed record CreateQuestionRequest
-{
-    public string? Letter { get; init; }
-    public string Question { get; init; } = "";
-    public string Answer { get; init; } = "";
-    public string? Category { get; init; }
-    public string? Difficulty { get; init; }
-}
-
-public sealed record UpdateQuestionRequest
-{
-    public string? Letter { get; init; }
-    public string? Question { get; init; }
-    public string? Answer { get; init; }
-    public string? Category { get; init; }
-    public string? Difficulty { get; init; }
-}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router";
 import { invoke, on, startConnection } from "~/lib/signalr";
+import { useAuth } from "~/contexts/AuthContext";
 import ThemeToggle from "~/components/ThemeToggle";
 import Dropdown from "~/components/Dropdown";
 
@@ -70,6 +71,7 @@ export default function LobbyPage() {
     const { sessionId } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
+    const { user, loading: authLoading, isGuest } = useAuth();
     const [lobby, setLobby] = useState<LobbyState | null>(null);
     const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
     const [myNameDraft, setMyNameDraft] = useState("");
@@ -79,6 +81,7 @@ export default function LobbyPage() {
     const [hostRenameDraft, setHostRenameDraft] = useState("");
     const [settingsDraft, setSettingsDraft] = useState({ gridSize: 5, totalRounds: 2, maxPlayersPerTeam: 2 });
     const [needsJoin, setNeedsJoin] = useState(false);
+    const [sessionNeedsPassword, setSessionNeedsPassword] = useState(false);
     const [error, setError] = useState("");
     const [connecting, setConnecting] = useState(true);
     const [confirmEnd, setConfirmEnd] = useState(false);
@@ -99,47 +102,36 @@ export default function LobbyPage() {
     }, []);
 
     useEffect(() => {
-        if (!sessionId) return;
+        if (!sessionId || authLoading) return;
+        if (!user) { navigate("/"); return; }
         let cancelled = false;
-        let checkCount = 0;
         const init = async () => {
             try {
                 await startConnection();
-                const storedPass = sessionStorage.getItem(`huroof_pass_${sessionId}`);
-                const storedName = sessionStorage.getItem(`huroof_name_${sessionId}`);
-                const storedPlayerId = sessionStorage.getItem(`huroof_playerId_${sessionId}`);
 
-                // Check if session exists
-                if (storedPass) {
-                    const result = await invoke<{ success?: boolean; error?: string; playerId?: string }>(
-                        "JoinSession", sessionId, storedPass, storedName || "temp"
-                    );
-                    if (!cancelled) {
-                        if (result.error && result.error.includes("not found")) {
-                            // Session not found, redirect to home
-                            navigate("/");
-                            return;
-                        }
-                        if (result.success) {
-                            setMyPlayerId(result.playerId || storedPlayerId || null);
-                            await loadLobbyState();
-                            if (!storedName) {
-                                // If we joined with a temp name, we need to update it
-                                setNeedsJoin(true);
-                            }
-                        } else {
-                            // Show error message
-                            setError(result.error || "");
-                            setNeedsJoin(true);
-                            if (storedPass) {
-                                setJoinPassword(storedPass);
-                            }
-                        }
+                // Try to join/rejoin using JWT auth — no password needed initially
+                // The backend will use our JWT to identify us
+                const name = user.inGameName || "لاعب";
+                const result = await invoke<{ success?: boolean; error?: string; playerId?: string }>(
+                    "JoinSession", sessionId, null, name
+                );
+                if (!cancelled) {
+                    if (result.error && result.error.includes("not found")) {
+                        navigate("/");
+                        return;
                     }
-                } else {
-                    setNeedsJoin(true);
-                    if (storedPass) {
-                        setJoinPassword(storedPass);
+                    if (result.error && result.error.includes("password")) {
+                        // Session requires a password — show join form
+                        setSessionNeedsPassword(true);
+                        setNeedsJoin(true);
+                        setJoinName(name);
+                    } else if (result.success) {
+                        setMyPlayerId(result.playerId || null);
+                        await loadLobbyState();
+                    } else {
+                        setError(result.error || "");
+                        setNeedsJoin(true);
+                        setJoinName(name);
                     }
                 }
             } catch { if (!cancelled) setError("فشل الاتصال بالخادم"); }
@@ -147,7 +139,7 @@ export default function LobbyPage() {
         };
         init();
         return () => { cancelled = true; };
-    }, [sessionId, navigate, loadLobbyState]);
+    }, [sessionId, navigate, loadLobbyState, authLoading, user]);
 
     useEffect(() => {
         const unsubLobby = on("LobbyUpdated", (state: unknown) => {
@@ -162,21 +154,10 @@ export default function LobbyPage() {
         });
         const unsubEnd = on("SessionEnded", () => navigate("/"));
         const unsubRemoved = on("RemovedFromSession", () => {
-            if (sessionId) {
-                sessionStorage.removeItem(`huroof_name_${sessionId}`);
-                sessionStorage.removeItem(`huroof_playerId_${sessionId}`);
-                sessionStorage.removeItem(`huroof_creator_${sessionId}`);
-            }
             navigate("/");
         });
         const unsubKicked = on("KickedFromSession", (data: unknown) => {
             const kickData = data as { reason: string };
-            if (sessionId) {
-                sessionStorage.removeItem(`huroof_name_${sessionId}`);
-                sessionStorage.removeItem(`huroof_playerId_${sessionId}`);
-                sessionStorage.removeItem(`huroof_creator_${sessionId}`);
-                sessionStorage.removeItem(`huroof_pass_${sessionId}`);
-            }
             navigate("/", { state: { kicked: true, reason: kickData.reason } });
         });
         return () => { unsubLobby(); unsubLobbyLower(); unsubGame(); unsubEnd(); unsubRemoved(); unsubKicked(); };
@@ -207,22 +188,14 @@ export default function LobbyPage() {
     }, [lobby?.players, myPlayerId]);
 
     const handleJoinFromLobby = useCallback(async () => {
-        if (!sessionId || !joinName.trim()) return;
+        if (!sessionId) return;
+        const displayName = user?.inGameName || "";
         setError("");
-        const storedPass = sessionStorage.getItem(`huroof_pass_${sessionId}`);
-        const passwordToUse = joinPassword || storedPass;
-        if (!passwordToUse) { 
-            setError(""); 
-            return; 
-        }
         try {
             const result = await invoke<{ success?: boolean; error?: string; playerId?: string }>(
-                "JoinSession", sessionId, passwordToUse, joinName
+                "JoinSession", sessionId, joinPassword || null, displayName
             );
             if (result.success) {
-                sessionStorage.setItem(`huroof_pass_${sessionId}`, passwordToUse);
-                sessionStorage.setItem(`huroof_name_${sessionId}`, joinName);
-                sessionStorage.setItem(`huroof_playerId_${sessionId}`, result.playerId || "");
                 setMyPlayerId(result.playerId || null);
                 await loadLobbyState();
                 setNeedsJoin(false);
@@ -230,7 +203,7 @@ export default function LobbyPage() {
                 setError(result.error || "");
             }
         } catch (e: any) { setError(e.message || "فشل الاتصال"); }
-    }, [sessionId, joinName, joinPassword, loadLobbyState]);
+    }, [sessionId, user?.inGameName, joinPassword, loadLobbyState]);
 
     const handleSetRole = useCallback(async (role: string) => {
         try {
@@ -243,9 +216,7 @@ export default function LobbyPage() {
         if (!sessionId || !myNameDraft.trim()) return;
         try {
             const result = await invoke<{ success?: boolean; error?: string }>("UpdateMyName", myNameDraft);
-            if (result.success) {
-                sessionStorage.setItem(`huroof_name_${sessionId}`, myNameDraft.trim());
-            } else {
+            if (!result.success) {
                 setError(result.error || "");
             }
         } catch (e: any) { setError(e.message || ""); }
@@ -254,29 +225,21 @@ export default function LobbyPage() {
     const handleLeaveSession = useCallback(async () => {
         try { await invoke("LeaveSession"); }
         catch { }
-        if (sessionId) {
-            sessionStorage.removeItem(`huroof_name_${sessionId}`);
-            sessionStorage.removeItem(`huroof_playerId_${sessionId}`);
-            sessionStorage.removeItem(`huroof_creator_${sessionId}`);
-        }
         navigate("/");
-    }, [navigate, sessionId]);
+    }, [navigate]);
 
     const handleHostRename = useCallback(async () => {
         if (!hostRenameId || !hostRenameDraft.trim()) return;
         try {
             const result = await invoke<{ success?: boolean; error?: string }>("RenamePlayer", hostRenameId, hostRenameDraft);
             if (result.success) {
-                if (hostRenameId === myPlayerId && sessionId) {
-                    sessionStorage.setItem(`huroof_name_${sessionId}`, hostRenameDraft.trim());
-                }
                 setHostRenameId(null);
                 setHostRenameDraft("");
             } else {
                 setError(result.error || "");
             }
         } catch (e: any) { setError(e.message || ""); }
-    }, [hostRenameId, hostRenameDraft, myPlayerId, sessionId]);
+    }, [hostRenameId, hostRenameDraft]);
 
     const handleKickPlayer = useCallback(async (playerId: string) => {
         try {
@@ -326,11 +289,10 @@ export default function LobbyPage() {
     }, [navigate]);
 
     const handleChangePassword = useCallback(async () => {
-        if (!sessionId || !newPassword.trim()) return;
+        if (!sessionId) return;
         try {
-            const result = await invoke<{ success?: boolean; error?: string }>("ChangePassword", newPassword);
+            const result = await invoke<{ success?: boolean; error?: string }>("ChangePassword", newPassword || null);
             if (result.success) {
-                sessionStorage.setItem(`huroof_pass_${sessionId}`, newPassword);
                 setNewPassword("");
                 setChangingPassword(false);
                 setShowPassword(false);
@@ -437,23 +399,16 @@ export default function LobbyPage() {
                         type="password" value={joinPassword}
                         onChange={(e) => setJoinPassword(e.target.value)}
                         placeholder="كلمة المرور"
-                        className="input-field mb-3"
-                        autoFocus
-                    />
-                    <input
-                        type="text" value={joinName}
-                        onChange={(e) => setJoinName(e.target.value)}
-                        placeholder="أدخل اسمك"
                         className="input-field mb-4"
-                        maxLength={24}
+                        autoFocus
                         onKeyDown={(e) => e.key === "Enter" && handleJoinFromLobby()}
                     />
                     {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
                     <button
                         className="btn-primary w-full py-4 text-xl"
                         onClick={handleJoinFromLobby}
-                        disabled={!joinName.trim() || !joinPassword.trim()}
-                        style={{ opacity: (!joinName.trim() || !joinPassword.trim()) ? 0.5 : 1 }}
+                        disabled={!joinPassword.trim()}
+                        style={{ opacity: !joinPassword.trim() ? 0.5 : 1 }}
                     >
                         ✅ انضمام
                     </button>
@@ -514,6 +469,30 @@ export default function LobbyPage() {
                                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                             </div>
                             <div className="space-y-3">
+                                {/* Session ID — visible to everyone */}
+                                <div className="flex items-center justify-between py-2 border-b border-white/5">
+                                    <span className="text-sm text-white/60">رمز الجلسة</span>
+                                    <div className="flex items-center gap-2">
+                                        <code className="px-2 py-0.5 rounded-md bg-white/10 text-white font-mono text-sm font-bold tracking-widest">
+                                            {sessionId}
+                                        </code>
+                                        <button
+                                            onClick={handleCopySessionId}
+                                            title={copied ? "تم النسخ!" : "نسخ الرمز"}
+                                            className="p-1 rounded-md bg-white/5 hover:bg-white/15 transition-all duration-200"
+                                        >
+                                            {copied ? (
+                                                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            ) : (
+                                                <svg className="w-4 h-4 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
                                 <div className="flex justify-between items-center py-2 border-b border-white/5">
                                     <span className="text-sm text-white/60">اللاعبون المتصلون</span>
                                     <span className="text-sm font-semibold text-white">{players.length}</span>
@@ -582,23 +561,8 @@ export default function LobbyPage() {
                                             <label className="text-xs text-white/40 uppercase tracking-wider">كلمة المرور</label>
                                             <div className="mt-1 flex items-center gap-2">
                                                 <code className="flex-1 px-3 py-1.5 bg-white/5 rounded-lg text-white font-mono text-sm border border-white/10">
-                                                    {showPassword ? sessionStorage.getItem(`huroof_pass_${sessionId}`) || "" : "••••••••"}
+                                                    ••••••••
                                                 </code>
-                                                <button 
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-all duration-200"
-                                                >
-                                                    {showPassword ? 
-                                                        <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                                                        </svg>
-                                                        :
-                                                        <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                        </svg>
-                                                    }
-                                                </button>
                                             </div>
                                             {!changingPassword ? (
                                                 <button 
@@ -775,14 +739,14 @@ export default function LobbyPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {[
                                     { 
-                                        label: "الالفريق البرتقالي", 
+                                        label: "الفريق البرتقالي", 
                                         players: orangePlayers, 
                                         color: "from-orange-500 to-red-500",
                                         borderColor: "border-orange-500/20",
                                         bgColor: "bg-orange-500/10"
                                     },
                                     { 
-                                        label: "الالفريق الأخضر", 
+                                        label: "الفريق الأخضر", 
                                         players: greenPlayers, 
                                         color: "from-green-500 to-emerald-500",
                                         borderColor: "border-green-500/20",
@@ -821,7 +785,7 @@ export default function LobbyPage() {
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-3">
-                                                        <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${team.color} flex items-center justify-center flex-shrink-0`}>
+                                                        <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${team.color} flex items-center justify-center shrink-0`}>
                                                             <UserIcon className="w-5 h-5 text-white" />
                                                         </div>
                                                         <div className="flex-1 min-w-0">

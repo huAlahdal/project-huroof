@@ -1,4 +1,5 @@
 import { memo, useMemo } from "react";
+import UserIcon from "./UserIcon";
 
 interface PlayerDto {
     id: string;
@@ -10,22 +11,6 @@ interface PlayerListProps {
     players: PlayerDto[];
     showTitle?: boolean;
 }
-
-// User icon component
-function UserIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
-    return (
-        <svg className={className} style={style} fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-        </svg>
-    );
-}
-
-const ROLE_EMOJI: Record<string, string> = {
-    teamorange: "🟠",
-    teamgreen: "🟢",
-    gamemaster: "🎮",
-    spectator: "👀",
-};
 
 const ROLE_LABEL: Record<string, string> = {
     teamorange: "الفريق البرتقالي",
@@ -46,7 +31,7 @@ const PlayerList = memo(function PlayerList({ players, showTitle = true }: Playe
             
             {gameMaster && (
                 <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
                          style={{
                              background: "rgba(216, 180, 254, 0.2)",
                              border: "1px solid #d8b4fe",
@@ -75,7 +60,7 @@ const PlayerList = memo(function PlayerList({ players, showTitle = true }: Playe
                     <p className="text-xs text-orange-400 font-semibold mb-2">{ROLE_LABEL.teamorange}</p>
                     {orangePlayers.map(p => (
                         <div key={p.id} className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
                                  style={{
                                      background: "rgba(251, 146, 60, 0.2)",
                                      border: "1px solid #fb923c",
@@ -105,7 +90,7 @@ const PlayerList = memo(function PlayerList({ players, showTitle = true }: Playe
                     <p className="text-xs text-green-400 font-semibold mb-2">{ROLE_LABEL.teamgreen}</p>
                     {greenPlayers.map(p => (
                         <div key={p.id} className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
                                  style={{
                                      background: "rgba(74, 222, 128, 0.2)",
                                      border: "1px solid #4ade80",
@@ -135,7 +120,7 @@ const PlayerList = memo(function PlayerList({ players, showTitle = true }: Playe
                     <p className="text-xs text-gray-400 font-semibold mb-2">{ROLE_LABEL.spectator}</p>
                     {spectators.map(p => (
                         <div key={p.id} className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
                                  style={{
                                      background: "rgba(156, 163, 175, 0.2)",
                                      border: "1px solid #9ca3af",

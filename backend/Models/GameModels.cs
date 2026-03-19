@@ -119,6 +119,7 @@ public class BuzzerState
 public class Player
 {
     public string Id { get; set; } = "";           // Generated unique ID
+    public string? UserId { get; set; }              // Linked user account ID
     public string ConnectionId { get; set; } = ""; // SignalR connection ID
     public string Name { get; set; } = "";
     public PlayerRole Role { get; set; } = PlayerRole.Spectator;
@@ -141,7 +142,8 @@ public class SelectedQuestion
 public class GameSession
 {
     public string Id { get; set; } = "";
-    public string PasswordHash { get; set; } = "";
+    public string? PasswordHash { get; set; }       // null = public session (no password)
+    public string? CreatedByUserId { get; set; }    // User who created the session
     public string? HostPlayerId { get; set; }
     public int GridSize { get; set; } = 5;         // 4, 5, or 6
     public int TotalRounds { get; set; } = 2;

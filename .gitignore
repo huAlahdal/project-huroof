@@ -17,6 +17,9 @@ obj/
 *.cache
 *.log
 
+# EF Core Migrations
+backend/Migrations/
+
 # Environment variables
 .env
 .env.local
