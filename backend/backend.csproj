@@ -15,19 +15,6 @@
     <Content Remove="Data\**\*.cs" />
   </ItemGroup>
 
-  <!-- Include web.config in publish output for IIS hosting -->
-  <ItemGroup>
-    <Content Include="web.config">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
-    <!-- Include Production appsettings -->
-    <Content Include="appsettings.Production.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
-  </ItemGroup>
-
   <!-- Create logs directory placeholder for IIS stdout logging -->
   <Target Name="CreateLogsDir" AfterTargets="Publish">
     <MakeDir Directories="$(PublishDir)logs" Condition="!Exists('$(PublishDir)logs')" />
