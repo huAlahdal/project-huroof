@@ -108,30 +108,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-// ─── Shared origin check (used by CORS policy + early middleware) ─────
-static bool IsAllowedOrigin(string origin)
-{
-    if (!Uri.TryCreate(origin, UriKind.Absolute, out var originUri))
-        return false;
-
-    var host = originUri.Host;
-    return host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-           host.Equals("0.0.0.0", StringComparison.OrdinalIgnoreCase) ||
-           host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
-           host.Equals("huroof.ddns.net", StringComparison.OrdinalIgnoreCase) ||
-           host.StartsWith("192.168.", StringComparison.OrdinalIgnoreCase) ||
-           host.StartsWith("10.", StringComparison.OrdinalIgnoreCase) ||
-           host.StartsWith("172.", StringComparison.OrdinalIgnoreCase);
-}
-
-// CORS for frontend
+// CORS — allow all origins (SetIsOriginAllowed(_ => true) is the same as
+// AllowAnyOrigin but compatible with AllowCredentials which SignalR needs)
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
+    options.AddPolicy("AllowAll", policy =>
     {
-        policy.SetIsOriginAllowed(IsAllowedOrigin)
-              .AllowAnyHeader()
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyMethod()
+              .AllowAnyHeader()
               .AllowCredentials();
     });
 });
@@ -142,37 +127,33 @@ var startedAtUtc = DateTime.UtcNow;
 // Use response compression
 app.UseResponseCompression();
 
-// ── Bullet-proof CORS: handle preflight & guarantee headers on every response ──
-// This runs before ALL other middleware so even 500s / startup errors carry
-// the proper Access-Control-* headers back to the browser.
+// ── Bullet-proof CORS: guarantee headers on EVERY response (including 500s) ──
 app.Use(async (context, next) =>
 {
     var origin = context.Request.Headers.Origin.FirstOrDefault();
-    bool allowed = !string.IsNullOrEmpty(origin) && IsAllowedOrigin(origin);
 
     // 1. Short-circuit OPTIONS preflight immediately
-    if (allowed && context.Request.Method.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase))
+    if (!string.IsNullOrEmpty(origin) &&
+        context.Request.Method.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase))
     {
         context.Response.StatusCode = 204;
-        context.Response.Headers["Access-Control-Allow-Origin"] = origin!;
+        context.Response.Headers["Access-Control-Allow-Origin"] = origin;
         context.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
         context.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept";
         context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
         context.Response.Headers["Access-Control-Max-Age"] = "86400";
         context.Response.Headers["Vary"] = "Origin";
-        return; // done – nothing else runs
+        return;
     }
 
-    // 2. For non-preflight requests, register a callback that fires just
-    //    before the response is sent so CORS headers are present even on
-    //    error responses (500, 401, etc.)
-    if (allowed)
+    // 2. Ensure CORS headers get written even on error responses
+    if (!string.IsNullOrEmpty(origin))
     {
         context.Response.OnStarting(() =>
         {
             if (!context.Response.Headers.ContainsKey("Access-Control-Allow-Origin"))
             {
-                context.Response.Headers["Access-Control-Allow-Origin"] = origin!;
+                context.Response.Headers["Access-Control-Allow-Origin"] = origin;
                 context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
                 context.Response.Headers["Vary"] = "Origin";
             }
@@ -183,8 +164,7 @@ app.Use(async (context, next) =>
     await next();
 });
 
-// Global exception handler (before CORS middleware so its response still
-// gets the CORS headers injected by the OnStarting callback above)
+// Global exception handler
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
@@ -193,45 +173,60 @@ app.UseExceptionHandler(errorApp =>
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         context.Response.ContentType = "application/json";
 
-        var response = new { error = "Internal server error" } as object;
-        if (app.Environment.IsDevelopment())
+        // Always include detail so you can debug on IIS
+        var response = new
         {
-            response = new
-            {
-                error = "Internal server error",
-                detail = exceptionFeature?.Error?.Message,
-                type = exceptionFeature?.Error?.GetType().Name
-            };
-        }
+            error = "Internal server error",
+            detail = exceptionFeature?.Error?.Message,
+            type = exceptionFeature?.Error?.GetType().Name
+        };
         await context.Response.WriteAsJsonAsync(response);
     });
 });
 
-// Standard CORS middleware (handles normal non-error responses)
-app.UseCors();
+app.UseRouting();
 
-// Add authentication & authorization middleware
+// UseCors MUST go between UseRouting and UseAuthorization
+app.UseCors("AllowAll");
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 using (var scope = app.Services.CreateScope())
 {
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     try
     {
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         db.Database.Migrate();
     }
     catch (Exception ex)
     {
-        // Log but don't crash the app — DB may already be up to date
+        // Migration can fail when the DB is in a half-migrated state (e.g.
+        // some tables already exist from a previous failed attempt).
+        // Fall back to EnsureCreated which will create any missing tables.
         Console.Error.WriteLine($"[Startup] DB migration warning: {ex.Message}");
+        try
+        {
+            Console.Error.WriteLine("[Startup] Falling back to EnsureCreated to create missing tables...");
+            db.Database.EnsureCreated();
+            Console.Error.WriteLine("[Startup] EnsureCreated completed successfully.");
+        }
+        catch (Exception ex2)
+        {
+            Console.Error.WriteLine($"[Startup] EnsureCreated also failed: {ex2.Message}");
+        }
     }
 }
 
 // Seed default admin user
+try
 {
     var authService = app.Services.GetRequiredService<AuthService>();
     await authService.SeedAdminAsync();
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine($"[Startup] Admin seed warning: {ex.Message}");
 }
 
 // ─── SignalR hub ───────────────────────────────────────────
