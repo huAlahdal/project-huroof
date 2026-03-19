@@ -4,6 +4,7 @@ import { invoke, startConnection, resetConnection } from "~/lib/signalr";
 import { useAuth, authHeaders } from "~/contexts/AuthContext";
 import { API_BASE } from "~/lib/api";
 import ThemeToggle from "~/components/ThemeToggle";
+import logoUrl from "~/assets/logo.jpeg";
 
 const BG_LETTERS = ["أ", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ر", "ز", "س", "ش", "ص", "ط", "ع", "غ", "ف", "ق", "ك", "ل", "م", "ن", "ه", "و", "ي"];
 const BG_COLORS = ["#7c3aed", "#f97316", "#22c55e", "#a855f7", "#ec4899", "#f59e0b"];
@@ -285,7 +286,7 @@ export default function HomePage() {
         {/* Logo */}
         <div className="text-center fade-in">
           <img
-            src="/logo.jpeg"
+            src={logoUrl}
             alt="حروف مع كشمير"
             className="w-24 h-24 rounded-3xl mx-auto mb-4 object-cover shadow-2xl logo-spin"
             style={{ boxShadow: "0 0 50px rgba(168,85,247,0.65)" }}
