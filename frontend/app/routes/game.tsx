@@ -31,6 +31,7 @@ interface BuzzerState {
     buzzerTimerFirst: number;
     buzzerTimerSecond: number;
     passedToOtherTeamAt: number | null;
+    passedToTeam: string | null;
     buzzerIsOpenMode: boolean;
     remainingSeconds: number | null;
     timerPhase: string | null;
@@ -60,6 +61,7 @@ interface GameState {
     question: SelectedQuestion;
     buzzer: BuzzerState;
     roundWinner: string | null;
+    usedQuestionIds: string[];
     version: number;
 }
 
@@ -99,11 +101,13 @@ interface GameStateWire {
         BuzzerTimerFirst?: number;
         BuzzerTimerSecond?: number;
         PassedToOtherTeamAt?: number | null;
+        PassedToTeam?: string | null;
         BuzzerIsOpenMode?: boolean;
         RemainingSeconds?: number | null;
         TimerPhase?: string | null;
     };
     RoundWinner?: string | null;
+    UsedQuestionIds?: string[];
     Version?: number;
 }
 
@@ -116,6 +120,7 @@ const EMPTY_BUZZER_STATE: BuzzerState = {
     buzzerTimerFirst: 0,
     buzzerTimerSecond: 0,
     passedToOtherTeamAt: null,
+    passedToTeam: null,
     buzzerIsOpenMode: false,
     remainingSeconds: null,
     timerPhase: null,
@@ -138,6 +143,7 @@ function normalizeGameState(state: GameState | GameStateWire): GameState {
             buzzer: state.buzzer ?? EMPTY_BUZZER_STATE,
             players: state.players ?? [],
             grid: state.grid ?? [],
+            usedQuestionIds: state.usedQuestionIds ?? [],
         };
     }
 
@@ -183,11 +189,13 @@ function normalizeGameState(state: GameState | GameStateWire): GameState {
             buzzerTimerFirst: state.Buzzer?.BuzzerTimerFirst ?? 0,
             buzzerTimerSecond: state.Buzzer?.BuzzerTimerSecond ?? 0,
             passedToOtherTeamAt: state.Buzzer?.PassedToOtherTeamAt ?? null,
+            passedToTeam: state.Buzzer?.PassedToTeam ?? null,
             buzzerIsOpenMode: state.Buzzer?.BuzzerIsOpenMode ?? false,
             remainingSeconds: state.Buzzer?.RemainingSeconds ?? null,
             timerPhase: state.Buzzer?.TimerPhase?.toLowerCase() ?? null,
         },
         roundWinner: state.RoundWinner ?? null,
+        usedQuestionIds: state.UsedQuestionIds ?? [],
         version: state.Version ?? 0,
     };
 }
@@ -202,6 +210,7 @@ export default function GamePage() {
     const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
     const [connected, setConnected] = useState(false);
     const [error, setError] = useState("");
+    const [notification, setNotification] = useState("");
     const [changeTeamModal, setChangeTeamModal] = useState<{
         isOpen: boolean;
         cellId: string;
@@ -215,7 +224,7 @@ export default function GamePage() {
     // Timer state — computed from server timestamps so all clients stay in sync
     const [timerPhase, setTimerPhase] = useState<"first" | "second" | "expired" | "open" | null>(null);
     const [timerSeconds, setTimerSeconds] = useState(0);
-    const [timerPosition, setTimerPosition] = useState<"bottom-left" | "bottom-center" | "bottom-right" | "top-left" | "top-center" | "top-right">("top-center");
+    const [timerPosition, setTimerPosition] = useState<"bottom-left" | "bottom-center" | "bottom-right" | "top-left" | "top-center" | "top-right">("bottom-right");
     const prevTimerPhaseRef = useRef<string | null>(null);
     // Holds the current interval's cancel fn so GM action handlers can stop it immediately
     const cancelTimerRef = useRef<(() => void) | null>(null);
@@ -315,7 +324,13 @@ export default function GamePage() {
             navigate("/", { state: { kicked: true, reason: kickData.reason } });
         });
 
-        return () => { unsubGame(); unsubLobby(); unsubEnd(); unsubKicked(); };
+        const unsubNotification = on("Notification", (data: unknown) => {
+            const { message } = data as { message: string };
+            setNotification(message);
+            setTimeout(() => setNotification(""), 4000);
+        });
+
+        return () => { unsubGame(); unsubLobby(); unsubEnd(); unsubKicked(); unsubNotification(); };
     }, [sessionId, navigate]);
 
     // Check if session doesn't exist after connection
@@ -362,8 +377,12 @@ export default function GamePage() {
     useEffect(() => {
         const buzzer = state?.buzzer;
 
+        // "Passed" state: buzzer was passed to the other team — unlocked but timer is running.
+        // In this case buzzerLocked is false but passedToOtherTeamAt is set, so DON'T early-return.
+        const isPassedState = !!(buzzer?.passedToOtherTeamAt && !buzzer.buzzerLocked && !buzzer.buzzerIsOpenMode);
+
         // No active buzz — decide whether to show "open" idle or nothing
-        if (!buzzer?.buzzerLocked || !buzzer.buzzedAt) {
+        if ((!buzzer?.buzzerLocked || !buzzer.buzzedAt) && !isPassedState) {
             if (buzzer?.buzzerIsOpenMode) {
                 prevTimerPhaseRef.current = "open";
                 setTimerPhase("open");
@@ -424,13 +443,20 @@ export default function GamePage() {
 
     const orangePlayers = state?.players.filter((p) => p.role === "teamorange") || [];
     const greenPlayers = state?.players.filter((p) => p.role === "teamgreen") || [];
-    const orangeName = orangePlayers.length > 0 ? orangePlayers.map((p) => p.name).join(" - ") : "الفريق البرتقالي";
-    const greenName = greenPlayers.length > 0 ? greenPlayers.map((p) => p.name).join(" - ") : "الفريق الأخضر";
+    const orangeName = "الفريق البرتقالي";
+    const greenName = "الفريق الأخضر";
+
+    // Buzzer is locked for this player if:
+    // - buzzer is locked (someone buzzed), OR
+    // - buzzer was passed to the other team and this player is NOT on that team
+    const buzzerLockedForMe = !!(state?.buzzer.buzzerLocked || (state?.buzzer.passedToTeam && state.buzzer.passedToTeam !== myTeam));
 
     // ─── Actions ─────────────────────────────────────────────
 
     const handleBuzz = useCallback(async () => {
         if (!state || state.buzzer.buzzerLocked || isBuzzing) return;
+        // Don't allow buzz if buzzer was passed to the other team
+        if (state.buzzer.passedToTeam && state.buzzer.passedToTeam !== myTeam) return;
         setIsBuzzing(true);
         playBuzzerSound();
         try {
@@ -442,7 +468,7 @@ export default function GamePage() {
             }
         } catch { /* ignore */ }
         setIsBuzzing(false);
-    }, [state?.buzzer.buzzerLocked, isBuzzing, playBuzzerSound]);
+    }, [state?.buzzer.buzzerLocked, state?.buzzer.passedToTeam, myTeam, isBuzzing, playBuzzerSound]);
 
     const handleSelectCell = useCallback(async (cellId: string) => {
         if (!isGameMaster) return;
@@ -453,6 +479,7 @@ export default function GamePage() {
                 const q = await fetchRandomQuestion(result.letter);
                 if (q) {
                     await invoke("SetQuestion", q.letter, q.question, q.answer, q.category, q.difficulty);
+                    if (q.id) await invoke("MarkQuestionUsed", q.id);
                 }
             }
         } catch { /* ignore */ }
@@ -465,6 +492,7 @@ export default function GamePage() {
                 const q = await fetchRandomQuestion(result.letter);
                 if (q) {
                     await invoke("SetQuestion", q.letter, q.question, q.answer, q.category, q.difficulty);
+                    if (q.id) await invoke("MarkQuestionUsed", q.id);
                 }
             }
         } catch { /* ignore */ }
@@ -476,6 +504,7 @@ export default function GamePage() {
         const q = await fetchRandomQuestion(state.question.letter);
         if (q) {
             await invoke("SetQuestion", q.letter, q.question, q.answer, q.category, q.difficulty);
+            if (q.id) await invoke("MarkQuestionUsed", q.id);
         }
     }, [state?.question]);
 
@@ -550,6 +579,10 @@ export default function GamePage() {
     const handleSelectQuestion = useCallback(async (question: Question) => {
         if (!state?.question?.letter) return;
         await invoke("SetQuestion", question.letter, question.question, question.answer, question.category, question.difficulty);
+        // Mark question as used
+        if (question.id) {
+            await invoke("MarkQuestionUsed", question.id);
+        }
     }, [state?.question]);
 
     const handleSetTimerConfig = useCallback(async (first?: number, second?: number) => {
@@ -599,6 +632,25 @@ export default function GamePage() {
         }
     }, []);
 
+    const handleSwapTeams = useCallback(async () => {
+        try {
+            const result = await invoke<{ success?: boolean; error?: string }>("SwapTeams");
+            if (result.error) {
+                setError(result.error);
+                setTimeout(() => setError(""), 3000);
+            }
+        } catch (e: any) {
+            setError(e.message || "فشل تبديل الفرق");
+            setTimeout(() => setError(""), 3000);
+        }
+    }, []);
+
+    const handleMarkQuestionUsed = useCallback(async (questionId: string) => {
+        try {
+            await invoke("MarkQuestionUsed", questionId);
+        } catch { /* ignore */ }
+    }, []);
+
     const handleLeaveGame = useCallback(async () => {
         try { await invoke("LeaveSession"); }
         catch { /* ignore */ }
@@ -638,6 +690,13 @@ export default function GamePage() {
 
     return (
         <div className="game-bg min-h-screen flex flex-col">
+            {/* Team swap notification */}
+            {notification && (
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 bg-purple-600/95 text-white rounded-lg shadow-lg fade-in-scale flex items-center gap-3 text-center font-bold text-base">
+                    <span>{notification}</span>
+                </div>
+            )}
+
             {/* Error notification */}
             {error && (
                 <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 bg-red-500/90 text-white rounded-lg shadow-lg fade-in-scale flex items-center gap-4">
@@ -812,7 +871,7 @@ export default function GamePage() {
                                 <Buzzer
                                     team={myTeam}
                                     playerName={myPlayer?.name || ""}
-                                    isLocked={state.buzzer.buzzerLocked || !state.question.letter || !state.question.questionText}
+                                    isLocked={buzzerLockedForMe || !state.question.letter || !state.question.questionText}
                                     lockReason={!state.question.letter || !state.question.questionText ? "no-question" : "game"}
                                     iWon={buzzerResult === "first"}
                                     iLost={buzzerResult === "late"}
@@ -882,6 +941,8 @@ export default function GamePage() {
                                 onSwitchPlayerTeam={handleSwitchPlayerTeam}
                                 onMoveSpectatorToTeam={handleMoveSpectatorToTeam}
                                 onChangeHexWinner={handleChangeHexWinner}
+                                onSwapTeams={handleSwapTeams}
+                                usedQuestionIds={state.usedQuestionIds}
                             />
                         </div>
                     )}
@@ -896,7 +957,7 @@ export default function GamePage() {
                                 <Buzzer
                                     team={myTeam}
                                     playerName={myPlayer?.name || ""}
-                                    isLocked={state.buzzer.buzzerLocked || !state.question.letter || !state.question.questionText}
+                                    isLocked={buzzerLockedForMe || !state.question.letter || !state.question.questionText}
                                     lockReason={!state.question.letter || !state.question.questionText ? "no-question" : "game"}
                                     iWon={buzzerResult === "first"}
                                     iLost={buzzerResult === "late"}
@@ -954,6 +1015,8 @@ export default function GamePage() {
                             onSwitchPlayerTeam={handleSwitchPlayerTeam}
                             onMoveSpectatorToTeam={handleMoveSpectatorToTeam}
                             onChangeHexWinner={handleChangeHexWinner}
+                            onSwapTeams={handleSwapTeams}
+                            usedQuestionIds={state.usedQuestionIds}
                         />
                     )}
                 </aside>
@@ -962,102 +1025,126 @@ export default function GamePage() {
             {/* Buzzer announcement overlay - positioned */}
             {(buzzerAnnounce || (state.buzzer.buzzerIsOpenMode && !state.buzzer.buzzerLocked)) && (
                 <div
-                    className={`fixed z-30 fade-in-scale ${
-                        timerPosition.includes('top') ? 'top-6' : 'bottom-6'
+                    className={`fixed z-40 fade-in-scale transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+                        timerPosition.includes('top') ? 'top-8' : 'bottom-8'
                     } ${
-                        timerPosition.includes('left') ? 'left-6' : 
-                        timerPosition.includes('right') ? 'right-6' : 
+                        timerPosition.includes('left') ? 'left-8' : 
+                        timerPosition.includes('right') ? 'right-8' : 
                         'left-1/2 -translate-x-1/2'
                     }`}
                 >
                     <div
-                        className="rounded-3xl px-8 py-6 text-center min-w-[260px] max-w-[320px]"
+                        className="relative overflow-hidden rounded-2xl flex flex-col min-w-[280px] sm:min-w-[340px] shadow-2xl"
                         style={{
                             background: buzzerAnnounce
-                                ? `linear-gradient(135deg, ${activeColor}25, ${activeColor}45, ${activeColor}25)`
-                                : "linear-gradient(135deg, rgba(234,179,8,0.15), rgba(234,179,8,0.30), rgba(234,179,8,0.15))",
-                            border: `3px solid ${buzzerAnnounce ? activeColor : "#eab308"}`,
-                            boxShadow: `0 8px 32px ${buzzerAnnounce ? activeColor : "#eab308"}40, 0 0 60px ${buzzerAnnounce ? activeColor : "#eab308"}20, inset 0 0 40px ${buzzerAnnounce ? activeColor : "#eab308"}10`,
-                            backdropFilter: "blur(20px)",
-                            transition: "all 0.4s ease-in-out",
+                                ? `linear-gradient(145deg, rgba(15, 23, 42, 0.85), rgba(30, 41, 59, 0.95))`
+                                : "linear-gradient(145deg, rgba(15, 23, 42, 0.8), rgba(30, 41, 59, 0.9))",
+                            border: `1px solid ${buzzerAnnounce ? activeColor : "#eab308"}50`,
+                            boxShadow: `0 20px 40px -10px rgba(0,0,0,0.5), 0 0 20px -5px ${buzzerAnnounce ? activeColor : "#eab308"}40`,
+                            backdropFilter: "blur(24px)",
                         }}
                     >
+                        {/* Decorative Top Glow */}
+                        <div 
+                            className="absolute top-0 left-0 right-0 h-1 opacity-80"
+                            style={{ background: buzzerAnnounce ? activeColor : "#eab308", boxShadow: `0 0 15px ${buzzerAnnounce ? activeColor : "#eab308"}` }}
+                        />
+
+                        {/* Open Mode State */}
                         {!buzzerAnnounce && state.buzzer.buzzerIsOpenMode && (
-                            <div>
-                                <div className="text-3xl mb-2">🔓</div>
-                                <p className="text-yellow-400 font-black text-base">مفتوح للجميع!</p>
-                                <p className="text-white/40 text-xs mt-1">بانتظار ضغط الجرس...</p>
+                            <div className="p-5 flex items-center justify-between">
+                                <div className="flex flex-col">
+                                    <span className="text-yellow-400 font-bold text-lg tracking-wide">مفتوح للجميع</span>
+                                    <span className="text-slate-400 text-sm mt-0.5">بانتظار ضغط الجرس...</span>
+                                </div>
+                                <div className="w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center border border-yellow-500/20">
+                                    <span className="text-2xl">🔓</span>
+                                </div>
                             </div>
                         )}
 
-                        {/* Who buzzed / whose turn — always show a team header when buzzer is active */}
-                        {buzzerAnnounce && (!timerPhase || timerPhase === "first") && (
-                            <>
-                                <div className="flex items-center justify-center gap-2 mb-1">
-                                    <span className="text-3xl">🔔</span>
-                                    <p className="text-2xl font-black" style={{ color: buzzerColor }}>
-                                        {buzzerTeamName}
-                                    </p>
+                        {/* Active Buzzer State */}
+                        {buzzerAnnounce && (
+                            <div className="flex flex-col">
+                                {/* Header Info */}
+                                <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-white/5 relative z-10">
+                                    <div className="flex flex-col">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xl">
+                                                {timerPhase === "second" ? "⏳" : "🔔"}
+                                            </span>
+                                            <span 
+                                                className="font-black text-xl tracking-wide uppercase" 
+                                                style={{ color: timerPhase === "second" ? otherTeamColor : buzzerColor }}
+                                            >
+                                                {timerPhase === "second" ? otherTeamName : buzzerTeamName}
+                                            </span>
+                                        </div>
+                                        {(!timerPhase || timerPhase === "first") && state.buzzer.buzzedPlayerName && (
+                                            <span className="text-slate-300 text-sm font-medium mt-1 pr-8">
+                                                اللاعب: {state.buzzer.buzzedPlayerName}
+                                            </span>
+                                        )}
+                                        {timerPhase === "second" && (
+                                            <span className="text-slate-300 text-sm font-medium mt-1 pr-8">
+                                                دور الفريق الآخر
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                                {state.buzzer.buzzedPlayerName && (
-                                    <p className="text-white text-base font-bold mb-1">🎮 {state.buzzer.buzzedPlayerName}</p>
-                                )}
-                                <p className="text-white/50 text-xs font-semibold mb-3">ضغط الجرس أولاً!</p>
-                            </>
-                        )}
-                        {buzzerAnnounce && timerPhase === "second" && (
-                            <>
-                                <div className="flex items-center justify-center gap-2 mb-1">
-                                    <span className="text-3xl">⏳</span>
-                                    <p className="text-2xl font-black" style={{ color: otherTeamColor }}>
-                                        {otherTeamName}
-                                    </p>
-                                </div>
-                                <p className="text-white/50 text-xs font-semibold mb-3">دور الفريق الآخر</p>
-                            </>
-                        )}
 
-                        {/* Countdown block — shown for any active phase including during open-mode buzzes */}
-                        {buzzerAnnounce && timerPhase && timerPhase !== "open" && (
-                            <div
-                                className="rounded-xl py-3 px-4"
-                                style={{
-                                    background: `${activeColor}15`,
-                                    border: `1px solid ${activeColor}40`,
-                                    transition: "border-color 0.4s, background 0.4s",
-                                }}
-                            >
-                                {timerPhase === "first" && (
-                                    <>
-                                        <div className="text-5xl font-black" style={{ color: buzzerColor }}>
-                                            {timerSeconds === 0 ? "Time is up" : timerSeconds}
-                                        </div>
-                                        <p className="text-white/70 text-xs font-semibold mt-1">
-                                            ⏳ الوقت المتبقي
-                                        </p>
-                                    </>
-                                )}
-                                {timerPhase === "expired" && (
-                                    <>
-                                        <div className="text-3xl mb-1">⛔</div>
-                                        <p className="text-red-400 text-xs font-bold">انتهى الوقت!</p>
-                                    </>
-                                )}
-                                {timerPhase === "second" && (
-                                    <>
-                                        <div className="text-5xl font-black" style={{ color: otherTeamColor }}>
-                                            {timerSeconds === 0 ? "Time is up" : timerSeconds}
-                                        </div>
-                                        <p className="text-xs font-semibold mt-1" style={{ color: otherTeamColor }}>
-                                            ⏳ دور {otherTeamName}
-                                        </p>
-                                    </>
-                                )}
-                                {timerPhase === "open" && (
-                                    <>
-                                        <div className="text-3xl mb-1">🔓</div>
-                                        <p className="text-yellow-400 text-xs font-bold">مفتوح للجميع!</p>
-                                    </>
+                                {/* Timer Core */}
+                                {timerPhase && timerPhase !== "open" && (
+                                    <div className="p-6 flex items-center justify-center relative bg-black/20">
+                                        {timerPhase === "expired" ? (
+                                            <div className="flex flex-col items-center gap-2 py-2">
+                                                <span className="text-4xl">⛔</span>
+                                                <span className="text-red-400 font-black text-xl tracking-widest uppercase">انتهى الوقت</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-6">
+                                                {/* Timer Ring */}
+                                                <div className="relative w-24 h-24 flex items-center justify-center">
+                                                    <svg className="absolute inset-0 w-full h-full -rotate-90">
+                                                        <circle 
+                                                            cx="48" cy="48" r="44" 
+                                                            fill="none" 
+                                                            stroke="currentColor" 
+                                                            strokeWidth="4" 
+                                                            className="text-white/5"
+                                                        />
+                                                        <circle 
+                                                            cx="48" cy="48" r="44" 
+                                                            fill="none" 
+                                                            stroke={timerPhase === "second" ? otherTeamColor : buzzerColor}
+                                                            strokeWidth="4" 
+                                                            strokeDasharray={276}
+                                                            strokeDashoffset={276 - (276 * (timerSeconds / (timerPhase === "first" ? Math.max(state.buzzer.buzzerTimerFirst || 15, timerSeconds) : Math.max(state.buzzer.buzzerTimerSecond || 10, timerSeconds))))}
+                                                            strokeLinecap="round"
+                                                            className="transition-all duration-1000 ease-linear"
+                                                        />
+                                                    </svg>
+                                                    <div 
+                                                        className="text-4xl font-black tabular-nums tracking-tighter z-10"
+                                                        style={{ color: timerPhase === "second" ? otherTeamColor : buzzerColor }}
+                                                    >
+                                                        {timerSeconds}
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Timer Text */}
+                                                <div className="flex flex-col justify-center">
+                                                    <span className="text-slate-400 text-xs uppercase tracking-widest mb-1 font-bold">الوقت المتبقي</span>
+                                                    <span 
+                                                        className="text-xl font-bold"
+                                                        style={{ color: timerPhase === "second" ? otherTeamColor : buzzerColor }}
+                                                    >
+                                                        {timerSeconds <= 5 && timerSeconds > 0 ? "أسرع!" : "ثانية"}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         )}

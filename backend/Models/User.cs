@@ -31,6 +31,7 @@ public class User
 
     public int GamesPlayed { get; set; }
     public int GamesWon { get; set; }
+    public int CorrectAnswers { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime LastLoginAt { get; set; } = DateTime.UtcNow;

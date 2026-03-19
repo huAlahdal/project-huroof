@@ -43,6 +43,7 @@ public class BuzzerState
     public int BuzzerTimerFirst { get; set; } = 5;
     public int BuzzerTimerSecond { get; set; } = 10;
     public long? PassedToOtherTeamAt { get; set; }
+    public string? PassedToTeam { get; set; }       // "orange" | "green" | null — restricts buzzer to this team only
     public bool BuzzerIsOpenMode { get; set; }
     
     // Server-calculated remaining time in seconds
@@ -57,6 +58,7 @@ public class BuzzerState
         BuzzedPlayerId = null;
         BuzzerLocked = false;
         PassedToOtherTeamAt = null;
+        PassedToTeam = null;
         BuzzerIsOpenMode = false;
         RemainingSeconds = null;
         TimerPhase = null;
@@ -70,6 +72,7 @@ public class BuzzerState
         BuzzedPlayerId = null;
         BuzzerLocked = false;
         PassedToOtherTeamAt = null;
+        PassedToTeam = null;
         BuzzerIsOpenMode = true;
         RemainingSeconds = null;
         TimerPhase = "open";
@@ -77,18 +80,30 @@ public class BuzzerState
 
     public void UpdateTimerState()
     {
-        if (!BuzzedAt.HasValue || !BuzzerLocked)
-        {
-            RemainingSeconds = null;
-            TimerPhase = null;
-            return;
-        }
-
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-        // Check PassedToOtherTeamAt FIRST — GM may pass before the first timer expires.
+        // If buzzer was passed to the other team, compute the second-phase timer
+        // even if BuzzerLocked is false (unlocked for the other team to press)
         if (PassedToOtherTeamAt.HasValue)
         {
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+            // If the other team already buzzed (BuzzerLocked is true), show first-phase timer for them
+            if (BuzzerLocked && BuzzedAt.HasValue && BuzzedAt.Value > PassedToOtherTeamAt.Value)
+            {
+                var elapsedSinceBuzz = (now - BuzzedAt.Value) / 1000.0;
+                if (elapsedSinceBuzz < BuzzerTimerFirst)
+                {
+                    TimerPhase = "first";
+                    RemainingSeconds = (int)Math.Ceiling(BuzzerTimerFirst - elapsedSinceBuzz);
+                }
+                else
+                {
+                    TimerPhase = "expired";
+                    RemainingSeconds = 0;
+                }
+                return;
+            }
+
+            // Other team hasn't buzzed yet — show second-phase countdown
             var elapsedSincePass = (now - PassedToOtherTeamAt.Value) / 1000.0;
             if (elapsedSincePass < BuzzerTimerSecond)
             {
@@ -103,8 +118,17 @@ public class BuzzerState
             return;
         }
 
+        if (!BuzzedAt.HasValue || !BuzzerLocked)
+        {
+            RemainingSeconds = null;
+            TimerPhase = null;
+            return;
+        }
+
+        var now2 = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
         // No pass yet — evaluate the first timer.
-        var elapsed = (now - BuzzedAt.Value) / 1000.0;
+        var elapsed = (now2 - BuzzedAt.Value) / 1000.0;
         if (elapsed < BuzzerTimerFirst)
         {
             TimerPhase = "first";
@@ -161,6 +185,9 @@ public class GameSession
     public int OrangeScore { get; set; }
     public int GreenScore { get; set; }
 
+    /// <summary>IDs of questions that have been used/answered in this session (for GM reference).</summary>
+    public HashSet<string> UsedQuestionIds { get; set; } = new();
+
     public string? SelectedCellId { get; set; }
     public SelectedQuestion Question { get; set; } = new();
     public BuzzerState Buzzer { get; set; } = new();
@@ -190,6 +217,7 @@ public class SessionStateDto
     public SelectedQuestion Question { get; set; } = new();
     public BuzzerState Buzzer { get; set; } = new();
     public string? RoundWinner { get; set; }
+    public HashSet<string> UsedQuestionIds { get; set; } = new();
     public int Version { get; set; }
 }
 

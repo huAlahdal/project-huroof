@@ -6,6 +6,7 @@ interface QuestionBrowserProps {
     letter: string;
     onSelectQuestion: (q: Question) => void;
     onClose: () => void;
+    usedQuestionIds?: string[];
 }
 
 const DIFFICULTY_LABELS: Record<string, { label: string; color: string; bg: string }> = {
@@ -14,12 +15,14 @@ const DIFFICULTY_LABELS: Record<string, { label: string; color: string; bg: stri
     hard: { label: "صعب", color: "#ef4444", bg: "rgba(239,68,68,0.15)" },
 };
 
-export default function QuestionBrowser({ letter, onSelectQuestion, onClose }: QuestionBrowserProps) {
+export default function QuestionBrowser({ letter, onSelectQuestion, onClose, usedQuestionIds }: QuestionBrowserProps) {
     const [diffFilter, setDiffFilter] = useState("all");
     const [catFilter, setCatFilter] = useState("all");
     const [search, setSearch] = useState("");
     const [letterQuestions, setLetterQuestions] = useState<Question[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const usedIds = useMemo(() => new Set(usedQuestionIds ?? []), [usedQuestionIds]);
 
     useEffect(() => {
         async function loadQuestions() {
@@ -141,27 +144,34 @@ export default function QuestionBrowser({ letter, onSelectQuestion, onClose }: Q
                     )}
                     {!loading && filtered.map((q: Question) => {
                         const diff = DIFFICULTY_LABELS[q.difficulty] ?? DIFFICULTY_LABELS.easy;
+                        const isUsed = usedIds.has(q.id);
                         return (
                             <button
                                 key={q.id}
                                 onClick={() => onSelectQuestion(q)}
-                                className="w-full text-right rounded-xl px-4 py-3 transition-all group"
+                                className="w-full text-right rounded-xl px-4 py-3 transition-all group relative"
                                 style={{
-                                    background: "var(--surface)",
-                                    border: "1px solid var(--border)",
+                                    background: isUsed ? "rgba(234,179,8,0.06)" : "var(--surface)",
+                                    border: isUsed ? "1px solid rgba(234,179,8,0.25)" : "1px solid var(--border)",
                                     cursor: "pointer",
                                     display: "block",
                                     textAlign: "right",
+                                    opacity: isUsed ? 0.7 : 1,
                                 }}
-                                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
-                                onMouseLeave={(e) => (e.currentTarget.style.background = "var(--surface)")}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = isUsed ? "rgba(234,179,8,0.12)" : "var(--surface-hover)")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = isUsed ? "rgba(234,179,8,0.06)" : "var(--surface)")}
                             >
+                                {isUsed && (
+                                    <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-black" style={{ background: "rgba(234,179,8,0.2)", color: "#facc15", border: "1px solid rgba(234,179,8,0.3)" }}>
+                                        تم استخدامه ✓
+                                    </span>
+                                )}
                                 <div className="flex items-start gap-3">
                                     <div className="flex-1 text-right">
-                                        <p className="text-sm font-bold leading-relaxed" style={{ color: "var(--text-1)" }}>
+                                        <p className="text-sm font-bold leading-relaxed" style={{ color: isUsed ? "var(--text-3)" : "var(--text-1)" }}>
                                             {q.question}
                                         </p>
-                                        <p className="text-xs font-semibold mt-1" style={{ color: "var(--accent)" }}>
+                                        <p className="text-xs font-semibold mt-1" style={{ color: isUsed ? "var(--text-4)" : "var(--accent)" }}>
                                             ✅ {q.answer}
                                         </p>
                                     </div>

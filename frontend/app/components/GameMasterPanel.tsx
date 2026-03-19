@@ -44,6 +44,8 @@ interface GameMasterPanelProps {
     onSwitchPlayerTeam?: (playerId: string, newRole: string) => void;
     onMoveSpectatorToTeam?: (playerId: string, teamRole: string) => void;
     onChangeHexWinner?: (cellId: string, winner: string) => void;
+    onSwapTeams?: () => void;
+    usedQuestionIds?: string[];
 }
 
 //  Helpers 
@@ -185,6 +187,8 @@ export default function GameMasterPanel({
     onSwitchPlayerTeam,
     onMoveSpectatorToTeam,
     onChangeHexWinner,
+    onSwapTeams,
+    usedQuestionIds,
 }: GameMasterPanelProps) {
 
     const [showBrowser, setShowBrowser] = useState(false);
@@ -461,6 +465,7 @@ export default function GameMasterPanel({
                     letter={selectedLetter}
                     onSelectQuestion={(q) => { onSelectQuestion(q); setShowBrowser(false); }}
                     onClose={() => setShowBrowser(false)}
+                    usedQuestionIds={usedQuestionIds}
                 />
             )}
 
@@ -553,6 +558,14 @@ export default function GameMasterPanel({
                     <div className="space-y-2">
                         <button className="w-full py-2.5 rounded-xl font-bold text-sm" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--text-1)", cursor: "pointer" }} onClick={onNextRound}>
                              الجولة التالية
+                        </button>
+
+                        <button
+                            className="w-full py-2.5 rounded-xl font-bold text-sm"
+                            style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)", color: "#facc15", cursor: "pointer" }}
+                            onClick={onSwapTeams}
+                        >
+                            🔄 تبديل الفرق (برتقالي ↔ أخضر)
                         </button>
 
                         {confirmReset ? (

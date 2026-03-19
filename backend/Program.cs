@@ -203,11 +203,9 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     try
     {
-        // No migrations folder in publish output — use EnsureCreated which
-        // creates the DB file + all tables from the model on first run,
-        // and is a safe no-op on subsequent runs when the DB already exists.
-        db.Database.EnsureCreated();
-        Console.WriteLine("[Startup] Database ready.");
+        // For development we use Migrate to ensure schemas align.
+        db.Database.Migrate();
+        Console.WriteLine("[Startup] Database migrated successfully.");
     }
     catch (Exception ex)
     {
@@ -259,14 +257,14 @@ object ToUserDto(User u) => new
 {
     u.Id, u.Email, u.Username, u.InGameName,
     Role = u.Role.ToString().ToLowerInvariant(),
-    u.GamesPlayed, u.GamesWon
+    u.GamesPlayed, u.GamesWon, u.CorrectAnswers
 };
 
 object ToAdminUserDto(User u) => new
 {
     u.Id, u.Email, u.Username, u.InGameName,
     Role = u.Role.ToString().ToLowerInvariant(),
-    u.GamesPlayed, u.GamesWon, u.IsActive,
+    u.GamesPlayed, u.GamesWon, u.CorrectAnswers, u.IsActive,
     u.CreatedAt, u.LastLoginAt
 };
 
@@ -637,7 +635,7 @@ app.MapDelete("/api/admin/questions/{id}", async (string id, ApplicationDbContex
     return Results.NoContent();
 });
 
-// POST bulk import (replace all — clears existing, then adds new)
+// POST bulk import (append semantics — appends imported questions to existing list)
 app.MapPost("/api/admin/questions/import", async (ApplicationDbContext db, HttpRequest req) =>
 {
     if (!IsAdmin(req)) return Unauthorized();
@@ -645,8 +643,7 @@ app.MapPost("/api/admin/questions/import", async (ApplicationDbContext db, HttpR
     var items = await req.ReadFromJsonAsync<List<CreateQuestionRequest>>();
     if (items == null) return Results.BadRequest();
     
-    // Clear existing questions first
-    await db.Questions.ExecuteDeleteAsync();
+    // We append questions to the existing ones
     
     var questions = items.Select(model => new Question
     {

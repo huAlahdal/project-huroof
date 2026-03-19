@@ -13,6 +13,7 @@ export interface User {
   role: string;
   gamesPlayed: number;
   gamesWon: number;
+  correctAnswers?: number;
   isGuest?: boolean;
 }
 

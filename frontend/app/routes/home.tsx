@@ -4,7 +4,6 @@ import { invoke, startConnection, resetConnection } from "~/lib/signalr";
 import { useAuth, authHeaders } from "~/contexts/AuthContext";
 import { API_BASE } from "~/lib/api";
 import ThemeToggle from "~/components/ThemeToggle";
-import logoUrl from "~/assets/logo.jpeg";
 
 const BG_LETTERS = ["أ", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ر", "ز", "س", "ش", "ص", "ط", "ع", "غ", "ف", "ق", "ك", "ل", "م", "ن", "ه", "و", "ي"];
 const BG_COLORS = ["#7c3aed", "#f97316", "#22c55e", "#a855f7", "#ec4899", "#f59e0b"];
@@ -12,7 +11,7 @@ const BG_COLORS = ["#7c3aed", "#f97316", "#22c55e", "#a855f7", "#ec4899", "#f59e
 export default function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading: authLoading, isGuest, loginAsGuest } = useAuth();
+  const { user, loading: authLoading, isGuest, loginAsGuest, logout } = useAuth();
   const [mode, setMode] = useState<"menu" | "create" | "join" | "guest-prompt">("menu");
   const [error, setError] = useState("");
 
@@ -276,6 +275,18 @@ export default function HomePage() {
             ⚙️ إدارة
           </a>
         )}
+        {user && (
+          <button
+            onClick={() => logout()}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:bg-red-500/10 hover:text-red-500"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-3)", cursor: "pointer" }}
+            title="تسجيل الخروج"
+          >
+            <svg className="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Vignette */}
@@ -284,20 +295,45 @@ export default function HomePage() {
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center gap-6 max-w-lg w-full">
         {/* Logo */}
-        <div className="text-center fade-in">
-          <img
-            src={logoUrl}
-            alt="حروف مع كشمير"
-            className="w-24 h-24 rounded-3xl mx-auto mb-4 object-cover shadow-2xl logo-spin"
-            style={{ boxShadow: "0 0 50px rgba(168,85,247,0.65)" }}
-          />
+        <div className="text-center fade-in flex flex-col items-center w-full">
+          <div className="relative group mx-auto mb-8 w-32 h-32">
+            {/* Glowing background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-[2.5rem] blur-xl opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
+            
+            {/* Main box */}
+            <div
+              className="relative flex items-center justify-center w-full h-full rounded-[2.5rem] text-white shadow-2xl overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600"
+              style={{
+                boxShadow: "inset 0 0 0 2px rgba(255, 255, 255, 0.2), 0 20px 40px -10px rgba(124, 58, 237, 0.5)"
+              }}
+            >
+              <div className="relative flex items-center justify-center w-full h-full logo-spin">
+                {/* Central Question Mark */}
+                <span className="text-[5rem] font-black z-10 leading-none drop-shadow-xl" style={{ textShadow: "4px 4px 0px rgba(0,0,0,0.15)" }}>؟</span>
+                {/* Internal Scattered Letters */}
+                <span className="absolute text-5xl font-black opacity-90 -translate-x-5 translate-y-3 rotate-12 text-blue-200 drop-shadow-md">ح</span>
+                <span className="absolute text-4xl font-black opacity-80 translate-x-6 -translate-y-4 -rotate-[15deg] text-pink-200 drop-shadow-md">س</span>
+              </div>
+            </div>
+
+            {/* Scattered Floating Letters Around */}
+            <div className="absolute -top-3 -left-5 text-2xl font-black text-blue-400 opacity-90 animate-bounce" style={{ animationDelay: "0.1s", animationDuration: "2.5s", textShadow: "0 0 12px rgba(59,130,246,0.8)" }}>م</div>
+            <div className="absolute top-10 -right-6 text-3xl font-black text-pink-400 opacity-90 animate-bounce" style={{ animationDelay: "0.5s", animationDuration: "3s", textShadow: "0 0 12px rgba(236,72,153,0.8)" }}>أ</div>
+            <div className="absolute -bottom-5 left-1 text-2xl font-black text-purple-400 opacity-90 animate-bounce" style={{ animationDelay: "0.3s", animationDuration: "2.8s", textShadow: "0 0 12px rgba(168,85,247,0.8)" }}>ن</div>
+            <div className="absolute bottom-1 -right-5 text-xl font-black text-indigo-400 opacity-90 animate-bounce" style={{ animationDelay: "0.8s", animationDuration: "2.2s", textShadow: "0 0 12px rgba(99,102,241,0.8)" }}>ق</div>
+          </div>
           <h1
-            className="text-5xl sm:text-6xl font-black leading-tight mb-1"
-            style={{ background: "linear-gradient(135deg,#f97316 0%,#a855f7 50%,#22c55e 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}
+            className="text-5xl sm:text-6xl font-black leading-tight mb-2 drop-shadow-sm pb-1"
+            style={{ 
+              background: "linear-gradient(to right, #3b82f6, #8b5cf6, #ec4899)", 
+              WebkitBackgroundClip: "text", 
+              WebkitTextFillColor: "transparent", 
+              backgroundClip: "text" 
+            }}
           >
-            حروف مع كشمير
+            حروف و أسئلة
           </h1>
-          <p className="text-sm font-medium" style={{ color: "var(--text-3)" }}>لعبة ثقافية تفاعلية للفريقين ⚔️</p>
+          <p className="text-base font-medium" style={{ color: "var(--text-3)" }}>لعبة ثقافية تفاعلية للفريقين ⚔️</p>
         </div>
 
         {/* ── Menu ── */}
@@ -362,7 +398,7 @@ export default function HomePage() {
             {/* Guest/Auth info banner */}
             {!authLoading && !user && (
               <div className="glass-card w-full p-3 mt-1 text-center space-y-2">
-                <p className="text-sm font-bold" style={{ color: "var(--text-1)" }}>مرحباً بك في حروف مع كشمير!</p>
+                <p className="text-sm font-bold" style={{ color: "var(--text-1)" }}>مرحباً بك في حروف و أسئلة!</p>
                 <p className="text-xs" style={{ color: "var(--text-3)" }}>
                   يمكنك اللعب كضيف أو تسجيل حساب لحفظ إحصائياتك
                 </p>
@@ -668,7 +704,7 @@ export default function HomePage() {
           </div>
         )}
 
-        <p className="text-xs" style={{ color: "var(--text-4)" }}>حروف مع كشمير — لعبة ثقافية تفاعلية</p>
+        <p className="text-xs" style={{ color: "var(--text-4)" }}>حروف و أسئلة — لعبة ثقافية تفاعلية</p>
       </div>
     </div>
   );

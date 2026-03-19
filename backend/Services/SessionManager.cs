@@ -537,6 +537,7 @@ public class SessionManager
             session.Question = new SelectedQuestion();
             session.Buzzer.Reset();
             session.RoundWinner = null;
+            session.UsedQuestionIds.Clear();
             IncrementVersionAndSave(session);
             return true;
         }
@@ -801,8 +802,58 @@ public class SessionManager
             session.Question = new SelectedQuestion();
             session.Buzzer.Reset();
             session.RoundWinner = null;
+            session.UsedQuestionIds.Clear();
             IncrementVersionAndSave(session);
             return true;
+        }
+    }
+
+    /// <summary>Swap teams: all orange players become green and vice versa, and scores are swapped.</summary>
+    public bool SwapTeams(string sessionId)
+    {
+        var session = GetSession(sessionId);
+        if (session == null) return false;
+
+        lock (_lock)
+        {
+            // Swap player roles
+            foreach (var player in session.Players)
+            {
+                if (player.Role == PlayerRole.TeamOrange)
+                    player.Role = PlayerRole.TeamGreen;
+                else if (player.Role == PlayerRole.TeamGreen)
+                    player.Role = PlayerRole.TeamOrange;
+            }
+
+            // Swap scores
+            (session.OrangeScore, session.GreenScore) = (session.GreenScore, session.OrangeScore);
+
+            // Swap grid cell ownership
+            foreach (var cell in FlatGrid(session))
+            {
+                if (cell.Owner == "orange") cell.Owner = "green";
+                else if (cell.Owner == "green") cell.Owner = "orange";
+            }
+
+            // Swap round winner if applicable
+            if (session.RoundWinner == "orange") session.RoundWinner = "green";
+            else if (session.RoundWinner == "green") session.RoundWinner = "orange";
+
+            IncrementVersionAndSave(session);
+            return true;
+        }
+    }
+
+    /// <summary>Mark a question as used in this session so the GM can track it.</summary>
+    public void MarkQuestionUsed(string sessionId, string questionId)
+    {
+        var session = GetSession(sessionId);
+        if (session == null) return;
+
+        lock (_lock)
+        {
+            session.UsedQuestionIds.Add(questionId);
+            IncrementVersionAndSave(session);
         }
     }
 
@@ -824,6 +875,10 @@ public class SessionManager
                      : player.Role == PlayerRole.TeamGreen ? "green"
                      : null;
             if (team == null) return false;
+
+            // If buzzer is restricted to a specific team (after pass), only that team can buzz
+            if (session.Buzzer.PassedToTeam != null && session.Buzzer.PassedToTeam != team)
+                return false;
 
             session.Buzzer.BuzzedTeam = team;
             session.Buzzer.BuzzedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -854,7 +909,12 @@ public class SessionManager
 
         lock (_lock)
         {
+            // Determine which team the buzzer should pass to
+            var otherTeam = session.Buzzer.BuzzedTeam == "orange" ? "green" : "orange";
             session.Buzzer.PassedToOtherTeamAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            session.Buzzer.PassedToTeam = otherTeam;
+            // Unlock so only the target team can buzz
+            session.Buzzer.BuzzerLocked = false;
             IncrementVersionAndSave(session);
         }
     }
@@ -889,11 +949,24 @@ public class SessionManager
 
         lock (_lock)
         {
-            // Case A: Second timer expired → auto-open for everyone
-            if (buzz.BuzzerLocked && buzz.PassedToOtherTeamAt.HasValue && !buzz.BuzzerIsOpenMode)
+            // Case A: Second timer expired (passed to other team, nobody buzzed yet) → auto-open for everyone
+            if (!buzz.BuzzerLocked && buzz.PassedToOtherTeamAt.HasValue && buzz.PassedToTeam != null && !buzz.BuzzerIsOpenMode)
             {
                 var elapsed = (now - buzz.PassedToOtherTeamAt.Value) / 1000.0;
                 if (elapsed >= buzz.BuzzerTimerSecond)
+                {
+                    buzz.Open();
+                    IncrementVersionAndSave(session);
+                    return true;
+                }
+            }
+
+            // Case A2: Other team buzzed after pass, and their timer ran out → auto-open
+            if (buzz.BuzzerLocked && buzz.PassedToOtherTeamAt.HasValue && buzz.BuzzedAt.HasValue 
+                && buzz.BuzzedAt.Value > buzz.PassedToOtherTeamAt.Value && !buzz.BuzzerIsOpenMode)
+            {
+                var elapsed = (now - buzz.BuzzedAt.Value) / 1000.0;
+                if (elapsed >= buzz.BuzzerTimerFirst)
                 {
                     buzz.Open();
                     IncrementVersionAndSave(session);
@@ -1084,6 +1157,7 @@ public class SessionManager
             Question = session.Question,
             Buzzer = session.Buzzer,
             RoundWinner = session.RoundWinner,
+            UsedQuestionIds = session.UsedQuestionIds,
             Version = session.Version
         };
     }

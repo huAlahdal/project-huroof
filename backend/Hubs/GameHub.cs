@@ -10,10 +10,12 @@ namespace Backend.Hubs;
 public class GameHub : Hub
 {
     private readonly SessionManager _sessions;
+    private readonly IServiceProvider _serviceProvider;
 
-    public GameHub(SessionManager sessions)
+    public GameHub(SessionManager sessions, IServiceProvider serviceProvider)
     {
         _sessions = sessions;
+        _serviceProvider = serviceProvider;
     }
 
     // ─── Auth Helpers ───────────────────────────────────────
@@ -292,8 +294,30 @@ public class GameHub : Hub
         if (sessionId == null) return new { error = "Not in a session" };
         if (!IsGameMaster(sessionId)) return new { error = "Not game master" };
 
+        var session = _sessions.GetSession(sessionId);
+        string? buzzedPlayerId = session?.Buzzer.BuzzedPlayerId;
+        string? buzzedTeam = session?.Buzzer.BuzzedTeam;
+
         var winner = _sessions.AwardCell(sessionId, team);
         _sessions.ResetBuzzer(sessionId);
+
+        // If the GM awards to the team that buzzed, credit that player
+        if (winner == team && buzzedTeam == team && !string.IsNullOrEmpty(buzzedPlayerId))
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<Backend.Data.ApplicationDbContext>();
+                var user = await db.Users.FindAsync(buzzedPlayerId);
+                if (user != null)
+                {
+                    user.CorrectAnswers++;
+                    await db.SaveChangesAsync();
+                }
+            }
+            catch { /* Ignore db errors for stats */ }
+        }
+
         await BroadcastState(sessionId);
         return new { success = true, winner };
     }
@@ -349,6 +373,30 @@ public class GameHub : Hub
         var gameState = SessionManager.ToStateDto(session);
         await Clients.Group(sessionId).SendAsync("GameStateUpdated", gameState);
         return new { success = true };
+    }
+
+    public async Task<object> SwapTeams()
+    {
+        var sessionId = _sessions.GetSessionForConnection(Context.ConnectionId);
+        if (sessionId == null) return new { error = "Not in a session" };
+        if (!IsGameMaster(sessionId)) return new { error = "Not game master" };
+
+        var success = _sessions.SwapTeams(sessionId);
+        if (!success) return new { error = "Failed to swap teams" };
+
+        await BroadcastState(sessionId);
+        await Clients.Group(sessionId).SendAsync("Notification", new { message = "🔄 تم تبديل الفرق! الفريق البرتقالي أصبح أخضر والفريق الأخضر أصبح برتقالي" });
+        return new { success = true };
+    }
+
+    public async Task MarkQuestionUsed(string questionId)
+    {
+        var sessionId = _sessions.GetSessionForConnection(Context.ConnectionId);
+        if (sessionId == null) return;
+        if (!IsGameMaster(sessionId)) return;
+
+        _sessions.MarkQuestionUsed(sessionId, questionId);
+        await BroadcastState(sessionId);
     }
 
     public async Task<object> EndSession()
