@@ -43,8 +43,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>حروف — لعبة ثقافية تفاعلية</title>
-        <meta name="description" content="لعبة حروف التفاعلية — تحدي ثقافي للفرق" />
+        <title>حروف مع كشمير — لعبة ثقافية تفاعلية</title>
+        <meta name="description" content="لعبة حروف مع كشمير التفاعلية — تحدي ثقافي للفرق" />
         <Meta />
         <Links />
         {/* Inject theme before paint to prevent flash */}

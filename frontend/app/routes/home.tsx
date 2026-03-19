@@ -284,17 +284,17 @@ export default function HomePage() {
       <div className="relative z-10 flex flex-col items-center gap-6 max-w-lg w-full">
         {/* Logo */}
         <div className="text-center fade-in">
-          <div
-            className="w-24 h-24 rounded-3xl mx-auto mb-4 flex items-center justify-center text-5xl font-black text-white shadow-2xl logo-spin"
-            style={{ background: "linear-gradient(135deg,#7c3aed 0%,#a855f7 60%,#ec4899 100%)", boxShadow: "0 0 50px rgba(168,85,247,0.65)" }}
-          >
-            ح
-          </div>
+          <img
+            src="/logo.jpeg"
+            alt="حروف مع كشمير"
+            className="w-24 h-24 rounded-3xl mx-auto mb-4 object-cover shadow-2xl logo-spin"
+            style={{ boxShadow: "0 0 50px rgba(168,85,247,0.65)" }}
+          />
           <h1
             className="text-5xl sm:text-6xl font-black leading-tight mb-1"
             style={{ background: "linear-gradient(135deg,#f97316 0%,#a855f7 50%,#22c55e 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}
           >
-            حروف
+            حروف مع كشمير
           </h1>
           <p className="text-sm font-medium" style={{ color: "var(--text-3)" }}>لعبة ثقافية تفاعلية للفريقين ⚔️</p>
         </div>
@@ -361,7 +361,7 @@ export default function HomePage() {
             {/* Guest/Auth info banner */}
             {!authLoading && !user && (
               <div className="glass-card w-full p-3 mt-1 text-center space-y-2">
-                <p className="text-sm font-bold" style={{ color: "var(--text-1)" }}>مرحباً بك في حروف!</p>
+                <p className="text-sm font-bold" style={{ color: "var(--text-1)" }}>مرحباً بك في حروف مع كشمير!</p>
                 <p className="text-xs" style={{ color: "var(--text-3)" }}>
                   يمكنك اللعب كضيف أو تسجيل حساب لحفظ إحصائياتك
                 </p>
@@ -667,7 +667,7 @@ export default function HomePage() {
           </div>
         )}
 
-        <p className="text-xs" style={{ color: "var(--text-4)" }}>حروف — لعبة ثقافية تفاعلية</p>
+        <p className="text-xs" style={{ color: "var(--text-4)" }}>حروف مع كشمير — لعبة ثقافية تفاعلية</p>
       </div>
     </div>
   );
