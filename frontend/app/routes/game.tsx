@@ -217,11 +217,13 @@ export default function GamePage() {
     const [timerSeconds, setTimerSeconds] = useState(0);
     const [timerPosition, setTimerPosition] = useState<"bottom-left" | "bottom-center" | "bottom-right" | "top-left" | "top-center" | "top-right">("top-center");
     const prevTimerPhaseRef = useRef<string | null>(null);
+    // Holds the current interval's cancel fn so GM action handlers can stop it immediately
+    const cancelTimerRef = useRef<(() => void) | null>(null);
 
     // Sound effects — tries /sounds/ first, then root /public, supports mp3 & wav
     const playSound = useCallback((names: string[], volume: number) => {
-        // Build a priority list: /sounds/file.mp3, /sounds/file.wav, /file.mp3, /file.wav
-        const paths = names.flatMap(n => [`/sounds/${n}`, `/${n}`]);
+        // Only look in /sounds/ — root-level paths hit React Router's SSR handler in dev mode
+        const paths = names.map(n => `/sounds/${n}`);
         const tryNext = (i: number) => {
             if (i >= paths.length) return;
             try {
@@ -360,39 +362,46 @@ export default function GamePage() {
     useEffect(() => {
         const buzzer = state?.buzzer;
 
-        // Open buzzer mode — no countdown
-        if (buzzer?.buzzerIsOpenMode) {
-            prevTimerPhaseRef.current = "open";
-            setTimerPhase("open");
-            setTimerSeconds(0);
-            return;
-        }
-
-        // No active buzz — clear
+        // No active buzz — decide whether to show "open" idle or nothing
+        // NOTE: must check this BEFORE the buzzerIsOpenMode path so that when someone
+        // buzzes during open mode (buzzedAt is set + locked), we fall through to the
+        // normal countdown logic rather than staying on "open" indefinitely.
         if (!buzzer?.buzzerLocked || !buzzer.buzzedAt) {
-            prevTimerPhaseRef.current = null;
-            setTimerPhase(null);
-            setTimerSeconds(0);
+            if (buzzer?.buzzerIsOpenMode) {
+                prevTimerPhaseRef.current = "open";
+                setTimerPhase("open");
+                setTimerSeconds(0);
+            } else {
+                prevTimerPhaseRef.current = null;
+                setTimerPhase(null);
+                setTimerSeconds(0);
+            }
             return;
         }
 
+        // Active buzz — compute timer from timestamps.
+        // Works for both normal buzzes and buzzes that happen while buzzerIsOpenMode=true.
         const { buzzedAt, passedToOtherTeamAt, buzzerTimerFirst, buzzerTimerSecond } = buzzer;
 
         const compute = () => {
             const now = Date.now();
-            const elapsed = (now - buzzedAt) / 1000;
 
+            // If the GM already passed to the other team, skip the first timer entirely
+            // (the GM can pass before the first timer naturally expires).
+            if (passedToOtherTeamAt) {
+                const elapsedSincePass = (now - passedToOtherTeamAt) / 1000;
+                if (elapsedSincePass < buzzerTimerSecond) {
+                    return { phase: "second" as const, seconds: Math.ceil(buzzerTimerSecond - elapsedSincePass) };
+                }
+                return { phase: "open" as const, seconds: 0 };
+            }
+
+            // No pass yet — run the first timer from buzzedAt
+            const elapsed = (now - buzzedAt) / 1000;
             if (elapsed < buzzerTimerFirst) {
                 return { phase: "first" as const, seconds: Math.ceil(buzzerTimerFirst - elapsed) };
             }
-            if (!passedToOtherTeamAt) {
-                return { phase: "expired" as const, seconds: 0 };
-            }
-            const elapsedSincePass = (now - passedToOtherTeamAt) / 1000;
-            if (elapsedSincePass < buzzerTimerSecond) {
-                return { phase: "second" as const, seconds: Math.ceil(buzzerTimerSecond - elapsedSincePass) };
-            }
-            return { phase: "open" as const, seconds: 0 };
+            return { phase: "expired" as const, seconds: 0 };
         };
 
         const tick = () => {
@@ -408,7 +417,11 @@ export default function GamePage() {
 
         tick(); // update immediately then poll every 250ms for smooth display
         const id = setInterval(tick, 250);
-        return () => clearInterval(id);
+        cancelTimerRef.current = () => clearInterval(id);
+        return () => {
+            clearInterval(id);
+            cancelTimerRef.current = null;
+        };
     }, [state?.buzzer.buzzerLocked, state?.buzzer.buzzedAt, state?.buzzer.passedToOtherTeamAt, state?.buzzer.buzzerIsOpenMode, playTimerEndSound]);
 
     // ─── Derived State ───────────────────────────────────────
@@ -489,14 +502,32 @@ export default function GamePage() {
     }, []);
 
     const handleResetBuzzer = useCallback(async () => {
+        // Immediately stop the running timer so the UI reacts before the server roundtrip
+        cancelTimerRef.current?.();
+        cancelTimerRef.current = null;
+        prevTimerPhaseRef.current = null;
+        setTimerPhase(null);
+        setTimerSeconds(0);
         await invoke("ResetBuzzer");
     }, []);
 
     const handlePassToOtherTeam = useCallback(async () => {
+        // Immediately stop the running timer and optimistically show second-team countdown
+        cancelTimerRef.current?.();
+        cancelTimerRef.current = null;
+        prevTimerPhaseRef.current = "second";
+        setTimerPhase("second");
+        setTimerSeconds(state?.buzzer.buzzerTimerSecond ?? 10);
         await invoke("PassToOtherTeam");
-    }, []);
+    }, [state?.buzzer.buzzerTimerSecond]);
 
     const handleOpenBuzzer = useCallback(async () => {
+        // Immediately stop the running timer and optimistically show open-for-all state
+        cancelTimerRef.current?.();
+        cancelTimerRef.current = null;
+        prevTimerPhaseRef.current = "open";
+        setTimerPhase("open");
+        setTimerSeconds(0);
         await invoke("OpenBuzzer");
     }, []);
 
@@ -836,6 +867,8 @@ export default function GamePage() {
                                 buzzerTimerFirst={state.buzzer.buzzerTimerFirst}
                                 buzzerTimerSecond={state.buzzer.buzzerTimerSecond}
                                 buzzedAt={state.buzzer.buzzedAt}
+                                timerPhase={timerPhase}
+                                timerSeconds={timerSeconds}
                                 orangeName={orangeName}
                                 greenName={greenName}
                                 players={state.players}
@@ -906,6 +939,8 @@ export default function GamePage() {
                             buzzerTimerFirst={state.buzzer.buzzerTimerFirst}
                             buzzerTimerSecond={state.buzzer.buzzerTimerSecond}
                             buzzedAt={state.buzzer.buzzedAt}
+                            timerPhase={timerPhase}
+                            timerSeconds={timerSeconds}
                             orangeName={orangeName}
                             greenName={greenName}
                             players={state.players}
@@ -965,7 +1000,8 @@ export default function GamePage() {
                             </div>
                         )}
 
-                        {buzzerAnnounce && (!timerPhase || timerPhase === "first" || state.buzzer.buzzerIsOpenMode) && (
+                        {/* Who buzzed / whose turn — always show a team header when buzzer is active */}
+                        {buzzerAnnounce && (!timerPhase || timerPhase === "first") && (
                             <>
                                 <div className="flex items-center justify-center gap-2 mb-1">
                                     <span className="text-3xl">🔔</span>
@@ -979,8 +1015,20 @@ export default function GamePage() {
                                 <p className="text-white/50 text-xs font-semibold mb-3">ضغط الجرس أولاً!</p>
                             </>
                         )}
+                        {buzzerAnnounce && timerPhase === "second" && (
+                            <>
+                                <div className="flex items-center justify-center gap-2 mb-1">
+                                    <span className="text-3xl">⏳</span>
+                                    <p className="text-2xl font-black" style={{ color: otherTeamColor }}>
+                                        {otherTeamName}
+                                    </p>
+                                </div>
+                                <p className="text-white/50 text-xs font-semibold mb-3">دور الفريق الآخر</p>
+                            </>
+                        )}
 
-                        {buzzerAnnounce && !state.buzzer.buzzerIsOpenMode && timerPhase && (
+                        {/* Countdown block — shown for any active phase including during open-mode buzzes */}
+                        {buzzerAnnounce && timerPhase && timerPhase !== "open" && (
                             <div
                                 className="rounded-xl py-3 px-4"
                                 style={{
@@ -995,7 +1043,7 @@ export default function GamePage() {
                                             {timerSeconds === 0 ? "Time is up" : timerSeconds}
                                         </div>
                                         <p className="text-white/70 text-xs font-semibold mt-1">
-                                            ⏳ وقت {state.buzzer.buzzedPlayerName || buzzerTeamName}
+                                            ⏳ الوقت المتبقي
                                         </p>
                                     </>
                                 )}

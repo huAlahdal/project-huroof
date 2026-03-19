@@ -560,6 +560,7 @@ public class SessionManager
             cell.IsSelected = true;
             session.SelectedCellId = cellId;
             session.Phase = GamePhase.Selected;
+            session.Buzzer.Reset();
             IncrementVersionAndSave(session);
             return cell;
         }
@@ -584,6 +585,7 @@ public class SessionManager
             cell.IsSelected = true;
             session.SelectedCellId = cell.Id;
             session.Phase = GamePhase.Selected;
+            session.Buzzer.Reset();
             IncrementVersionAndSave(session);
             return cell;
         }
@@ -606,6 +608,7 @@ public class SessionManager
                 Difficulty = difficulty,
                 ShowQuestion = session.Question.ShowQuestion
             };
+            session.Buzzer.Reset();
             IncrementVersionAndSave(session);
         }
     }
@@ -715,8 +718,8 @@ public class SessionManager
 
             var previousRoundWinner = session.RoundWinner;
 
-            // Set new owner
-            cell.Owner = winner;
+            // Set new owner ("none"/"clear"/"neutral" means remove ownership)
+            cell.Owner = winner is "none" or "clear" or "neutral" or "" ? null : winner;
 
             // Check for win conditions
             if (CheckWin(session.Grid, winner, session.GridSize))
@@ -869,6 +872,48 @@ public class SessionManager
             // Use the Open method which properly resets the buzzer state
             session.Buzzer.Open();
             IncrementVersionAndSave(session);
+        }
+    }
+
+    /// <summary>
+    /// Called by BuzzerWatchdog to automatically open the buzzer when a timer phase expires.
+    /// Returns true if the state changed and a broadcast is needed.
+    /// </summary>
+    public bool TryAutoOpenBuzzer(string sessionId)
+    {
+        var session = GetSession(sessionId);
+        if (session == null || session.Phase != GamePhase.Selected) return false;
+
+        var buzz = session.Buzzer;
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        lock (_lock)
+        {
+            // Case A: Second timer expired → auto-open for everyone
+            if (buzz.BuzzerLocked && buzz.PassedToOtherTeamAt.HasValue && !buzz.BuzzerIsOpenMode)
+            {
+                var elapsed = (now - buzz.PassedToOtherTeamAt.Value) / 1000.0;
+                if (elapsed >= buzz.BuzzerTimerSecond)
+                {
+                    buzz.Open();
+                    IncrementVersionAndSave(session);
+                    return true;
+                }
+            }
+
+            // Case B: Someone buzzed while buzzer was open-for-all and their timer ran out → re-open
+            if (buzz.BuzzerIsOpenMode && buzz.BuzzerLocked && buzz.BuzzedAt.HasValue)
+            {
+                var elapsed = (now - buzz.BuzzedAt.Value) / 1000.0;
+                if (elapsed >= buzz.BuzzerTimerFirst)
+                {
+                    buzz.Open();
+                    IncrementVersionAndSave(session);
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 

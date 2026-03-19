@@ -33,6 +33,7 @@ export function getConnection(): signalR.HubConnection {
 
     connection.onclose(() => {
       console.error("[SignalR] Connection closed.");
+      connectionPromise = null;
     });
 
     connection.onreconnecting(() => {
@@ -49,12 +50,12 @@ export function getConnection(): signalR.HubConnection {
 export async function startConnection(): Promise<signalR.HubConnection> {
   const conn = getConnection();
   if (conn.state === signalR.HubConnectionState.Disconnected) {
-    if (!connectionPromise) {
-      connectionPromise = conn.start().catch(err => {
-        connectionPromise = null;
-        throw err;
-      });
-    }
+    // If we are disconnected, any existing promise is stale.
+    connectionPromise = conn.start().catch(err => {
+      connectionPromise = null;
+      throw err;
+    });
+
     try {
       await connectionPromise;
     } catch (err) {
@@ -68,12 +69,22 @@ export async function startConnection(): Promise<signalR.HubConnection> {
       console.error("[SignalR] Failed to connect while waiting:", err);
       throw new Error("فشل الاتصال بالخادم — تأكد من تشغيل السيرفر");
     }
+  } else if (conn.state === signalR.HubConnectionState.Reconnecting) {
+    // Wait until JS/SignalR handles the reconnect?
+    // SignalR will automatically queue or we can throw. 
+    // Usually stateful reconnect handles calls on its own!
   }
   return conn;
 }
 
 export async function invoke<T = unknown>(method: string, ...args: unknown[]): Promise<T> {
   const conn = await startConnection();
+  if (conn.state !== signalR.HubConnectionState.Connected) {
+    if (conn.state === signalR.HubConnectionState.Reconnecting) {
+       throw new Error("جاري إعادة الاتصال بالخادم...");
+    }
+    throw new Error("لا يمكن إرسال البيانات لأن الاتصال غير متاح.");
+  }
   return await conn.invoke<T>(method, ...args);
 }
 
@@ -93,4 +104,5 @@ export async function resetConnection(): Promise<void> {
     try { await connection.stop(); } catch { /* ignore */ }
     connection = null;
   }
+  connectionPromise = null;
 }

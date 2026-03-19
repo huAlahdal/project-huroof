@@ -49,6 +49,7 @@ builder.Services.AddSignalR(options =>
     options.MaximumParallelInvocationsPerClient = 1;
 }).AddMessagePackProtocol(); // Use MessagePack for better performance
 builder.Services.AddSingleton<SessionManager>();
+builder.Services.AddHostedService<BuzzerWatchdog>();
 builder.Services.AddSingleton<AuthService>();
 
 // Resolve an absolute path for the SQLite DB so it works correctly on any
