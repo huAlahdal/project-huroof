@@ -136,10 +136,16 @@ app.Use(async (context, next) =>
     if (!string.IsNullOrEmpty(origin) &&
         context.Request.Method.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase))
     {
+        // Echo back whatever headers the client asks for (covers x-signalr-user-agent, etc.)
+        var requestedHeaders = context.Request.Headers["Access-Control-Request-Headers"].FirstOrDefault()
+                               ?? "Content-Type, Authorization";
+        var requestedMethod = context.Request.Headers["Access-Control-Request-Method"].FirstOrDefault()
+                              ?? "GET, POST, PUT, DELETE, PATCH, OPTIONS";
+
         context.Response.StatusCode = 204;
         context.Response.Headers["Access-Control-Allow-Origin"] = origin;
-        context.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
-        context.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept";
+        context.Response.Headers["Access-Control-Allow-Methods"] = requestedMethod;
+        context.Response.Headers["Access-Control-Allow-Headers"] = requestedHeaders;
         context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
         context.Response.Headers["Access-Control-Max-Age"] = "86400";
         context.Response.Headers["Vary"] = "Origin";
