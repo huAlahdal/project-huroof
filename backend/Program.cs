@@ -197,24 +197,15 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     try
     {
-        db.Database.Migrate();
+        // No migrations folder in publish output — use EnsureCreated which
+        // creates the DB file + all tables from the model on first run,
+        // and is a safe no-op on subsequent runs when the DB already exists.
+        db.Database.EnsureCreated();
+        Console.WriteLine("[Startup] Database ready.");
     }
     catch (Exception ex)
     {
-        // Migration can fail when the DB is in a half-migrated state (e.g.
-        // some tables already exist from a previous failed attempt).
-        // Fall back to EnsureCreated which will create any missing tables.
-        Console.Error.WriteLine($"[Startup] DB migration warning: {ex.Message}");
-        try
-        {
-            Console.Error.WriteLine("[Startup] Falling back to EnsureCreated to create missing tables...");
-            db.Database.EnsureCreated();
-            Console.Error.WriteLine("[Startup] EnsureCreated completed successfully.");
-        }
-        catch (Exception ex2)
-        {
-            Console.Error.WriteLine($"[Startup] EnsureCreated also failed: {ex2.Message}");
-        }
+        Console.Error.WriteLine($"[Startup] Database setup warning: {ex.Message}");
     }
 }
 
