@@ -1057,6 +1057,11 @@ public class SessionManager
 
     public static SessionStateDto ToStateDto(GameSession session)
     {
+        // Always compute fresh timer phase / remaining seconds at broadcast time
+        // so clients receive authoritative values and can count down locally
+        // without any sensitivity to clock skew between server and client.
+        session.Buzzer.UpdateTimerState();
+
         return new SessionStateDto
         {
             SessionId = session.Id,

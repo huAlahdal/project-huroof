@@ -354,18 +354,15 @@ export default function GamePage() {
 
     // ─── Timer Countdown ─────────────────────────────────────
     //
-    // All clients derive the timer from the same server-authoritative timestamps
-    // (buzzedAt, passedToOtherTeamAt) rather than from server-pre-computed
-    // remainingSeconds. This keeps every player's display perfectly in sync
-    // regardless of network jitter or when they received the last state update.
+    // The server computes timerPhase + remainingSeconds at broadcast time and sends
+    // them in every state update. The client counts down locally from those values
+    // so there is zero sensitivity to clock skew between the server and client clocks.
+    // Each new SignalR update re-seeds the countdown from the fresh server values.
 
     useEffect(() => {
         const buzzer = state?.buzzer;
 
         // No active buzz — decide whether to show "open" idle or nothing
-        // NOTE: must check this BEFORE the buzzerIsOpenMode path so that when someone
-        // buzzes during open mode (buzzedAt is set + locked), we fall through to the
-        // normal countdown logic rather than staying on "open" indefinitely.
         if (!buzzer?.buzzerLocked || !buzzer.buzzedAt) {
             if (buzzer?.buzzerIsOpenMode) {
                 prevTimerPhaseRef.current = "open";
@@ -379,50 +376,43 @@ export default function GamePage() {
             return;
         }
 
-        // Active buzz — compute timer from timestamps.
-        // Works for both normal buzzes and buzzes that happen while buzzerIsOpenMode=true.
-        const { buzzedAt, passedToOtherTeamAt, buzzerTimerFirst, buzzerTimerSecond } = buzzer;
+        // Server-authoritative phase + remaining seconds (computed at broadcast time)
+        const serverPhase = (buzzer.timerPhase ?? null) as "first" | "second" | "expired" | "open" | null;
+        const serverRemaining = buzzer.remainingSeconds ?? 0;
 
-        const compute = () => {
-            const now = Date.now();
+        // Non-countdown states — apply immediately, play transition sounds
+        if (!serverPhase || serverPhase === "expired" || serverPhase === "open") {
+            const prev = prevTimerPhaseRef.current;
+            if (prev !== "expired" && serverPhase === "expired") playTimerEndSound();
+            if (prev === "second" && serverPhase === "open") playTimerEndSound();
+            prevTimerPhaseRef.current = serverPhase;
+            setTimerPhase(serverPhase);
+            setTimerSeconds(0);
+            return;
+        }
 
-            // If the GM already passed to the other team, skip the first timer entirely
-            // (the GM can pass before the first timer naturally expires).
-            if (passedToOtherTeamAt) {
-                const elapsedSincePass = (now - passedToOtherTeamAt) / 1000;
-                if (elapsedSincePass < buzzerTimerSecond) {
-                    return { phase: "second" as const, seconds: Math.ceil(buzzerTimerSecond - elapsedSincePass) };
-                }
-                return { phase: "open" as const, seconds: 0 };
-            }
-
-            // No pass yet — run the first timer from buzzedAt
-            const elapsed = (now - buzzedAt) / 1000;
-            if (elapsed < buzzerTimerFirst) {
-                return { phase: "first" as const, seconds: Math.ceil(buzzerTimerFirst - elapsed) };
-            }
-            return { phase: "expired" as const, seconds: 0 };
-        };
+        // Active countdown — seed from server value, tick down using local time.
+        // This is purely local-to-local elapsed measurement (no server clock involved)
+        // so clock skew has zero effect on the displayed countdown.
+        const startedAt = Date.now();
+        const initialRemaining = serverRemaining;
 
         const tick = () => {
-            const { phase, seconds } = compute();
-            const prev = prevTimerPhaseRef.current;
-            // Play sound on transitions into "expired" or "open" (second timer ran out)
-            if (prev !== "expired" && phase === "expired") playTimerEndSound();
-            if (prev === "second" && phase === "open") playTimerEndSound();
-            prevTimerPhaseRef.current = phase;
-            setTimerPhase(phase);
-            setTimerSeconds(seconds);
+            const localElapsed = (Date.now() - startedAt) / 1000;
+            const remaining = Math.max(0, initialRemaining - localElapsed);
+            prevTimerPhaseRef.current = serverPhase;
+            setTimerPhase(serverPhase);
+            setTimerSeconds(Math.ceil(remaining));
         };
 
-        tick(); // update immediately then poll every 250ms for smooth display
+        tick();
         const id = setInterval(tick, 250);
         cancelTimerRef.current = () => clearInterval(id);
         return () => {
             clearInterval(id);
             cancelTimerRef.current = null;
         };
-    }, [state?.buzzer.buzzerLocked, state?.buzzer.buzzedAt, state?.buzzer.passedToOtherTeamAt, state?.buzzer.buzzerIsOpenMode, playTimerEndSound]);
+    }, [state?.buzzer.buzzerLocked, state?.buzzer.buzzedAt, state?.buzzer.passedToOtherTeamAt, state?.buzzer.buzzerIsOpenMode, state?.buzzer.timerPhase, state?.buzzer.remainingSeconds, playTimerEndSound]);
 
     // ─── Derived State ───────────────────────────────────────
 

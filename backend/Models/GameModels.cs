@@ -85,19 +85,9 @@ public class BuzzerState
         }
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var elapsed = (now - BuzzedAt.Value) / 1000.0;
 
-        if (elapsed < BuzzerTimerFirst)
-        {
-            TimerPhase = "first";
-            RemainingSeconds = (int)Math.Ceiling(BuzzerTimerFirst - elapsed);
-        }
-        else if (!PassedToOtherTeamAt.HasValue)
-        {
-            TimerPhase = "expired";
-            RemainingSeconds = 0;
-        }
-        else
+        // Check PassedToOtherTeamAt FIRST — GM may pass before the first timer expires.
+        if (PassedToOtherTeamAt.HasValue)
         {
             var elapsedSincePass = (now - PassedToOtherTeamAt.Value) / 1000.0;
             if (elapsedSincePass < BuzzerTimerSecond)
@@ -110,6 +100,20 @@ public class BuzzerState
                 TimerPhase = "open";
                 RemainingSeconds = 0;
             }
+            return;
+        }
+
+        // No pass yet — evaluate the first timer.
+        var elapsed = (now - BuzzedAt.Value) / 1000.0;
+        if (elapsed < BuzzerTimerFirst)
+        {
+            TimerPhase = "first";
+            RemainingSeconds = (int)Math.Ceiling(BuzzerTimerFirst - elapsed);
+        }
+        else
+        {
+            TimerPhase = "expired";
+            RemainingSeconds = 0;
         }
     }
 }
