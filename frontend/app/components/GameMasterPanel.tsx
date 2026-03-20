@@ -196,6 +196,7 @@ export default function GameMasterPanel({
     const [confirmEnd, setConfirmEnd] = useState(false);
     const [confirmReset, setConfirmReset] = useState(false);
     const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<"question" | "players" | "settings">("question");
 
     const buzzerColor = buzzedTeam === "orange" ? "#f97316" : "#22c55e";
     const otherColor = buzzedTeam === "orange" ? "#22c55e" : "#f97316";
@@ -317,14 +318,14 @@ export default function GameMasterPanel({
         <div className="space-y-1.5">
             <div className="grid grid-cols-2 gap-2">
                 <button
-                    className="btn-orange py-3 text-sm font-black rounded-xl active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="btn-orange py-6 text-xl font-black rounded-xl active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2 shadow-lg"
                     onClick={onAwardOrange}
                     disabled={!hasQuestion}
                 >
-                     {orangeName.split(" - ")[0]}
+                    <UserIcon /> <span className="pt-1">برتقالي</span>
                 </button>
                 <button
-                    className="btn-green py-3 text-sm font-black rounded-xl active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="btn-green py-6 text-xl font-black rounded-xl active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2 shadow-lg"
                     onClick={onAwardGreen}
                     disabled={!hasQuestion}
                 >
@@ -466,6 +467,8 @@ export default function GameMasterPanel({
     // RENDER
     // 
 
+    const nonGmPlayerCount = players.filter(p => p.role !== "gamemaster").length;
+
     return (
         <>
             {showBrowser && selectedLetter && (
@@ -479,28 +482,64 @@ export default function GameMasterPanel({
 
             <div className="space-y-3">
 
-                {/*  1. QUESTION  */}
-                {renderQuestion()}
-
-                {/*  2. AWARD  */}
-                <div className="space-y-1.5">
-                    <DivLabel label="منح الخلية" />
-                    {renderAward()}
+                {/* ═══ TAB BAR ═══ */}
+                <div className="flex rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)" }}>
+                    {([
+                        { id: "question" as const, label: "السؤال",  icon: "🎯", dot: !!buzzedTeam },
+                        { id: "players"  as const, label: "لاعبون",   icon: "👥", count: nonGmPlayerCount },
+                        { id: "settings" as const, label: "الجلسة",   icon: "⚙️" },
+                    ]).map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className="flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 relative transition-all"
+                            style={{
+                                background: activeTab === tab.id ? "rgba(168,85,247,0.18)" : "transparent",
+                                color: activeTab === tab.id ? "#d8b4fe" : "var(--text-3)",
+                                border: "none",
+                                cursor: "pointer",
+                                borderBottom: activeTab === tab.id ? "2px solid #a855f7" : "2px solid transparent",
+                            }}
+                        >
+                            <span>{tab.icon}</span>
+                            <span>{tab.label}</span>
+                            {"dot" in tab && tab.dot && (
+                                <span className="absolute top-1 left-1 w-2 h-2 rounded-full animate-pulse" style={{ background: buzzedTeam === "orange" ? "#f97316" : "#22c55e" }} />
+                            )}
+                            {"count" in tab && tab.count !== undefined && (
+                                <span className="px-1.5 rounded-full text-[9px] font-black" style={{ background: "rgba(168,85,247,0.25)", color: "var(--accent)" }}>{tab.count}</span>
+                            )}
+                        </button>
+                    ))}
                 </div>
 
-                {/*  3. BUZZER  */}
-                <div className="space-y-1.5">
-                    <DivLabel label="الجرس والمؤقت" />
-                    {renderBuzzer()}
-                </div>
+                {/* ═══ TAB: QUESTION ═══ */}
+                {activeTab === "question" && (
+                    <>
+                        {/*  1. QUESTION  */}
+                        {renderQuestion()}
 
-                {/*  4. PLAYERS  */}
-                <Section icon="👥 " title="إدارة اللاعبين" defaultOpen={false} count={players.filter(p => p.role !== "gamemaster").length}>
+                        {/*  2. AWARD  */}
+                        <div className="space-y-1.5">
+                            <DivLabel label="منح الخلية" />
+                            {renderAward()}
+                        </div>
+
+                        {/*  3. BUZZER  */}
+                        <div className="space-y-1.5">
+                            <DivLabel label="الجرس والمؤقت" />
+                            {renderBuzzer()}
+                        </div>
+                    </>
+                )}
+
+                {/* ═══ TAB: PLAYERS ═══ */}
+                {activeTab === "players" && (
                     <div className="space-y-1.5">
                         {players.map((p) => {
                             const isOrange = p.role === "teamorange";
-                            const isGreen = p.role === "teamgreen";
-                            const isGM = p.role === "gamemaster";
+                            const isGreen  = p.role === "teamgreen";
+                            const isGM     = p.role === "gamemaster";
                             const isSpectator = p.role === "spectator";
                             const clr = isOrange ? "#fb923c" : isGreen ? "#4ade80" : isGM ? "#d8b4fe" : "var(--text-3)";
                             const isSelected = selectedPlayer === p.id;
@@ -528,7 +567,7 @@ export default function GameMasterPanel({
                                                 <UserIcon className="w-3 h-3" style={{ color: clr }} />
                                             </div>
                                             <span className="flex-1 truncate text-right">{p.name}</span>
-                                            <span className="text-[10px] shrink-0" style={{ color: "var(--text-4)" }}>{isGM ? "GM" : isOrange ? "" : isGreen ? "" : ""}</span>
+                                            <span className="text-[10px] shrink-0" style={{ color: "var(--text-4)" }}>{isGM ? "GM" : isOrange ? "🟠" : isGreen ? "🟢" : "👀"}</span>
                                         </div>
                                     </button>
 
@@ -546,30 +585,30 @@ export default function GameMasterPanel({
                                                     <button className="flex-1 text-xs py-1.5 rounded-lg font-medium" style={{ background: "rgba(156,163,175,0.15)", color: "var(--text-3)", border: "1px solid rgba(156,163,175,0.25)", cursor: "pointer" }} onClick={() => { onSwitchPlayerTeam?.(p.id, "spectator"); setSelectedPlayer(null); setSwitchFrom(null); }}> مشاهد</button>
                                                 </>
                                             )}
-                                            <button className="text-xs py-1.5 px-2.5 rounded-lg font-medium" style={{ background: "rgba(239,68,68,0.18)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", cursor: "pointer" }} onClick={() => { onKickPlayer?.(p.id); setSelectedPlayer(null); setSwitchFrom(null); }}></button>
+                                            <button className="text-xs py-1.5 px-2.5 rounded-lg font-medium" style={{ background: "rgba(239,68,68,0.18)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", cursor: "pointer" }} onClick={() => { onKickPlayer?.(p.id); setSelectedPlayer(null); setSwitchFrom(null); }}>🚫</button>
                                         </div>
                                     )}
                                 </div>
                             );
                         })}
+                        {switchFrom && (
+                            <div className="text-center pt-1 space-y-1">
+                                <p className="text-[10px]" style={{ color: "var(--text-4)" }}>اضغط على لاعب آخر لتبديل موقعيهما</p>
+                                <button className="text-[10px] px-3 py-1 rounded-lg" style={{ background: "rgba(239,68,68,0.12)", color: "#f87171", border: "1px solid rgba(239,68,68,0.25)", cursor: "pointer" }} onClick={() => { setSwitchFrom(null); setSelectedPlayer(null); }}>إلغاء</button>
+                            </div>
+                        )}
                     </div>
-                    {switchFrom && (
-                        <div className="text-center pt-1 space-y-1">
-                            <p className="text-[10px]" style={{ color: "var(--text-4)" }}>اضغط على لاعب آخر لتبديل موقعيهما</p>
-                            <button className="text-[10px] px-3 py-1 rounded-lg" style={{ background: "rgba(239,68,68,0.12)", color: "#f87171", border: "1px solid rgba(239,68,68,0.25)", cursor: "pointer" }} onClick={() => { setSwitchFrom(null); setSelectedPlayer(null); }}>إلغاء</button>
-                        </div>
-                    )}
-                </Section>
+                )}
 
-                {/*  5. CONTROLS  */}
-                <Section icon="⚙️ " title="التحكم بالجلسة" defaultOpen={false}>
+                {/* ═══ TAB: SETTINGS ═══ */}
+                {activeTab === "settings" && (
                     <div className="space-y-2">
-                        <button className="w-full py-2.5 rounded-xl font-bold text-sm" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--text-1)", cursor: "pointer" }} onClick={onNextRound}>
+                        <button className="w-full py-3 rounded-xl font-bold text-sm" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--text-1)", cursor: "pointer" }} onClick={onNextRound}>
                             ⏭️ الجولة التالية
                         </button>
 
                         <button
-                            className="w-full py-2.5 rounded-xl font-bold text-sm"
+                            className="w-full py-3 rounded-xl font-bold text-sm"
                             style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)", color: "#facc15", cursor: "pointer" }}
                             onClick={onSwapTeams}
                         >
@@ -578,10 +617,10 @@ export default function GameMasterPanel({
 
                         {confirmReset ? (
                             <div className="rounded-xl p-2.5 space-y-1.5" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
-                                <p className="text-xs text-center font-bold" style={{ color: "#f87171" }}> تأكيد إعادة اللعبة</p>
+                                <p className="text-xs text-center font-bold" style={{ color: "#f87171" }}>⚠️ تأكيد إعادة اللعبة</p>
                                 <div className="flex gap-2">
-                                    <button className="flex-1 py-1.5 rounded-lg text-xs font-black" style={{ background: "#dc2626", color: "#fff", border: "none", cursor: "pointer" }} onClick={() => { onResetGame(); setConfirmReset(false); }}> نعم</button>
-                                    <button className="flex-1 py-1.5 rounded-lg text-xs font-bold" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-2)", cursor: "pointer" }} onClick={() => setConfirmReset(false)}> إلغاء</button>
+                                    <button className="flex-1 py-1.5 rounded-lg text-xs font-black" style={{ background: "#dc2626", color: "#fff", border: "none", cursor: "pointer" }} onClick={() => { onResetGame(); setConfirmReset(false); }}>✓ نعم</button>
+                                    <button className="flex-1 py-1.5 rounded-lg text-xs font-bold" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-2)", cursor: "pointer" }} onClick={() => setConfirmReset(false)}>✕ إلغاء</button>
                                 </div>
                             </div>
                         ) : (
@@ -594,10 +633,10 @@ export default function GameMasterPanel({
 
                         {confirmEnd ? (
                             <div className="rounded-xl p-2.5 space-y-1.5" style={{ background: "rgba(220,38,38,0.10)", border: "1px solid rgba(220,38,38,0.30)" }}>
-                                <p className="text-xs text-center font-bold" style={{ color: "#fca5a5" }}> هذا سيطرد جميع اللاعبين!</p>
+                                <p className="text-xs text-center font-bold" style={{ color: "#fca5a5" }}>⚠️ هذا سيطرد جميع اللاعبين!</p>
                                 <div className="flex gap-2">
-                                    <button className="flex-1 py-1.5 rounded-lg text-xs font-black" style={{ background: "#991b1b", color: "#fff", border: "none", cursor: "pointer" }} onClick={() => { onEndSession(); setConfirmEnd(false); }}> إنهاء</button>
-                                    <button className="flex-1 py-1.5 rounded-lg text-xs font-bold" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-2)", cursor: "pointer" }} onClick={() => setConfirmEnd(false)}> إلغاء</button>
+                                    <button className="flex-1 py-1.5 rounded-lg text-xs font-black" style={{ background: "#991b1b", color: "#fff", border: "none", cursor: "pointer" }} onClick={() => { onEndSession(); setConfirmEnd(false); }}>✓ إنهاء</button>
+                                    <button className="flex-1 py-1.5 rounded-lg text-xs font-bold" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-2)", cursor: "pointer" }} onClick={() => setConfirmEnd(false)}>✕ إلغاء</button>
                                 </div>
                             </div>
                         ) : (
@@ -606,7 +645,7 @@ export default function GameMasterPanel({
                             </button>
                         )}
                     </div>
-                </Section>
+                )}
 
             </div>
         </>

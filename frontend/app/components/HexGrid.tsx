@@ -46,7 +46,23 @@ const HexGrid = memo(function HexGrid({
                 style={{ maxWidth: 900, display: "block" }}
                 xmlns="http://www.w3.org/2000/svg"
             >
-                
+                <defs>
+                    <radialGradient id="hexGridGlow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%"   stopColor="rgba(168,85,247,0.10)" />
+                        <stop offset="60%"  stopColor="rgba(124,58,237,0.04)" />
+                        <stop offset="100%" stopColor="transparent" />
+                    </radialGradient>
+                </defs>
+
+                {/* Radial background glow */}
+                <ellipse
+                    cx={viewBox.split(" ")[2] ? (+viewBox.split(" ")[0] + +viewBox.split(" ")[2]) / 2 : 0}
+                    cy={viewBox.split(" ")[3] ? (+viewBox.split(" ")[1] + +viewBox.split(" ")[3]) / 2 : 0}
+                    rx={viewBox.split(" ")[2] ? +viewBox.split(" ")[2] * 0.52 : 100}
+                    ry={viewBox.split(" ")[3] ? +viewBox.split(" ")[3] * 0.52 : 100}
+                    fill="url(#hexGridGlow)"
+                />
+
 
                 {/* Border hexagons */}
                 {borderHexes.map((bh, i) => {

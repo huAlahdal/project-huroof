@@ -1,4 +1,4 @@
-import { memo, useEffect, useCallback } from "react";
+import { memo, useEffect, useCallback, useState } from "react";
 
 interface BuzzerProps {
     team: "orange" | "green" | null;
@@ -8,6 +8,8 @@ interface BuzzerProps {
     iLost: boolean;
     isBuzzing: boolean;
     lockReason?: "game" | "no-question";
+    timerSeconds?: number;
+    timerPhase?: "first" | "second" | "expired" | "open" | null;
     onBuzz: () => void;
 }
 
@@ -19,8 +21,18 @@ const Buzzer = memo(function Buzzer({
     iLost,
     isBuzzing,
     lockReason = "game",
+    timerSeconds,
+    timerPhase,
     onBuzz,
 }: BuzzerProps) {
+    const [isShaking, setIsShaking] = useState(false);
+
+    const triggerShake = useCallback(() => {
+        if (isShaking) return;
+        setIsShaking(true);
+        setTimeout(() => setIsShaking(false), 450);
+    }, [isShaking]);
+
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (e.code === "Space" || e.code === "Enter") {
             // Don't fire if focus is in an input/textarea/button
@@ -73,6 +85,12 @@ const Buzzer = memo(function Buzzer({
                     <div className="text-8xl mb-4" style={{ animation: "buzzerPulse 0.6s ease-in-out infinite" }}>🎉</div>
                     <p className="text-white text-3xl font-black">أنت الأول!</p>
                     <p className="text-white/60 text-lg mt-2">بانتظار قرار المقدم...</p>
+                    {timerPhase === "first" && timerSeconds != null && timerSeconds > 0 && (
+                        <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full" style={{ background: `${primaryColor}18`, border: `1px solid ${primaryColor}40` }}>
+                            <span className="font-black text-lg" style={{ color: primaryColor }}>{timerSeconds}</span>
+                            <span className="text-white/40 text-sm">ثانية متبقية</span>
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -85,10 +103,18 @@ const Buzzer = memo(function Buzzer({
                     <div className="text-7xl mb-4 opacity-50">😔</div>
                     <p className="text-white/60 text-2xl font-black">الفريق الآخر كان أسرع</p>
                     <p className="text-white/40 text-base mt-2">انتظر السؤال التالي</p>
+                    {timerPhase === "second" && timerSeconds != null && timerSeconds > 0 && (
+                        <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                            <span className="text-white/50 font-bold text-sm">⏱ {timerSeconds}ث للفريق الآخر</span>
+                        </div>
+                    )}
                 </div>
             </div>
         );
     }
+
+    const isUrgent = !isLocked && !isBuzzing && timerPhase != null && timerSeconds != null && timerSeconds <= 5 && timerSeconds > 0;
+    const lockedLockReason = isLocked ? (lockReason === "no-question" ? "لم يختر سؤال بعد" : "الجرس مقفل") : null;
 
     return (
         <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -100,19 +126,19 @@ const Buzzer = memo(function Buzzer({
 
             {/* Buzzer button */}
             <button
-                onClick={onBuzz}
-                disabled={isLocked || isBuzzing}
-                className="relative"
-                style={{ touchAction: "manipulation" }}
+                onClick={isLocked ? triggerShake : onBuzz}
+                disabled={isBuzzing}
+                className={`relative ${isShaking ? "buzzer-shake" : ""}`}
+                style={{ touchAction: "manipulation", background: "none", border: "none", padding: 0, cursor: isLocked ? "not-allowed" : "pointer" }}
             >
                 {/* Outer glow ring */}
                 <div
-                    className={!isLocked ? "buzzer-ripple" : ""}
+                    className={!isLocked ? (isUrgent ? "buzzer-urgent-ring buzzer-ripple" : "buzzer-ripple") : ""}
                     style={{
                         position: "absolute",
                         inset: 0,
                         borderRadius: "50%",
-                        background: `radial-gradient(circle, ${primaryColor}40 0%, transparent 70%)`,
+                        background: `radial-gradient(circle, ${isUrgent ? "#ef444440" : primaryColor + "40"} 0%, transparent 70%)`,
                         transform: "scale(1.5)",
                         opacity: isLocked ? 0.2 : undefined,
                     }}
@@ -131,36 +157,57 @@ const Buzzer = memo(function Buzzer({
                         justifyContent: "center",
                         background: isLocked
                             ? "linear-gradient(145deg, #444 0%, #222 100%)"
-                            : `linear-gradient(145deg, ${primaryColor} 0%, ${darkColor} 100%)`,
+                            : `linear-gradient(145deg, ${isUrgent ? "#ef4444" : primaryColor} 0%, ${isUrgent ? "#dc2626" : darkColor} 100%)`,
                         boxShadow: isLocked
                             ? "0 4px 16px rgba(0,0,0,0.6), inset 0 -2px 8px rgba(0,0,0,0.5)"
-                            : (isBuzzing 
+                            : isBuzzing
                                 ? `0 2px 8px rgba(0,0,0,0.8), inset 0 8px 16px rgba(0,0,0,0.6)`
-                                : `0 12px 48px ${primaryColor}90, inset 0 -6px 16px rgba(0,0,0,0.4), 0 0 120px ${primaryColor}40`),
-                        border: `6px solid ${isLocked ? "#555" : primaryColor}`,
+                                : isUrgent
+                                    ? `0 12px 48px rgba(239,68,68,0.8), inset 0 -6px 16px rgba(0,0,0,0.4), 0 0 120px rgba(239,68,68,0.5)`
+                                    : `0 12px 48px ${primaryColor}90, inset 0 -6px 16px rgba(0,0,0,0.4), 0 0 120px ${primaryColor}40`,
+                        border: `6px solid ${isLocked ? "#555" : isUrgent ? "#ef4444" : primaryColor}`,
                         color: primaryColor,
                         transform: isLocked ? "scale(0.95)" : isBuzzing ? "scale(0.9)" : "scale(1)",
-                        transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+                        transition: "all 0.18s cubic-bezier(0.4, 0, 0.2, 1)",
                         cursor: isLocked ? "not-allowed" : "pointer",
                         filter: isLocked ? "grayscale(80%) opacity(0.7)" : "none",
                     }}
                 >
                     <div className="text-center" style={{ transform: isBuzzing ? "translateY(4px)" : "none", transition: "transform 0.15s ease" }}>
-                        <span className="text-white text-6xl font-black block" style={{ textShadow: !isLocked ? "0 4px 12px rgba(0,0,0,0.3)" : "none" }}>
-                            {isLocked ? "🔒" : "🔔"}
-                        </span>
-                        <span className="text-white text-xl font-black block mt-3" style={{ textShadow: !isLocked ? "0 2px 8px rgba(0,0,0,0.3)" : "none" }}>
-                            {isLocked ? "مقفل" : "اضغط!"}
-                        </span>
+                        {isUrgent && timerSeconds != null ? (
+                            <>
+                                <span className="text-white font-black block" style={{ fontSize: "4rem", lineHeight: 1 }}>{timerSeconds}</span>
+                                <span className="text-white/80 text-base font-bold block mt-1">أسرع!</span>
+                            </>
+                        ) : (
+                            <>
+                                <span className="text-white text-6xl font-black block" style={{ textShadow: !isLocked ? "0 4px 12px rgba(0,0,0,0.3)" : "none" }}>
+                                    {isLocked ? "🔒" : "🔔"}
+                                </span>
+                                <span className="text-white text-xl font-black block mt-3" style={{ textShadow: !isLocked ? "0 2px 8px rgba(0,0,0,0.3)" : "none" }}>
+                                    {isLocked ? "مقفل" : "اضغط!"}
+                                </span>
+                            </>
+                        )}
                     </div>
                 </div>
             </button>
+
+            {/* Lock reason hint */}
+            {isLocked && lockedLockReason && (
+                <p className="text-white/40 text-xs font-bold text-center px-4">{lockedLockReason}</p>
+            )}
 
             <p className="text-white/30 text-xs">
                 {isOrange ? "← يربط أفقياً →" : "↑ يربط عمودياً ↓"}
             </p>
             {!isLocked && !iWon && !iLost && (
-                <p className="text-white/20 text-[10px]">Space / Enter للضغط بلوحة المفاتيح</p>
+                <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded border text-[10px] font-black" style={{ borderColor: "rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>Space</span>
+                    <span className="text-white/25 text-[10px]">/</span>
+                    <span className="px-2 py-0.5 rounded border text-[10px] font-black" style={{ borderColor: "rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>Enter</span>
+                    <span className="text-white/25 text-[10px] mr-1">للضغط</span>
+                </div>
             )}
         </div>
     );

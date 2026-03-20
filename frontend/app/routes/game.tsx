@@ -230,6 +230,15 @@ export default function GamePage() {
     // Holds the current interval's cancel fn so GM action handlers can stop it immediately
     const cancelTimerRef = useRef<(() => void) | null>(null);
 
+    // Buzz flash state — fires when a team buzzes in
+    const [buzzFlash, setBuzzFlash] = useState<string | null>(null);
+    const prevBuzzedTeamRef = useRef<string | null>(null);
+
+    // Round transition overlay
+    const [showRoundTransition, setShowRoundTransition] = useState(false);
+    const [roundTransitionData, setRoundTransitionData] = useState<{ round: number; orangeScore: number; greenScore: number } | null>(null);
+    const prevRoundRef = useRef<number>(1);
+
     // Sound effects — tries /sounds/ first, then root /public, supports mp3 & wav
     const playSound = useCallback((names: string[], volume: number) => {
         // Only look in /sounds/ — root-level paths hit React Router's SSR handler in dev mode
@@ -333,6 +342,32 @@ export default function GamePage() {
 
         return () => { unsubGame(); unsubLobby(); unsubEnd(); unsubKicked(); unsubNotification(); };
     }, [sessionId, navigate]);
+
+    // ─── Buzz flash effect ───────────────────────────────────
+    useEffect(() => {
+        if (state?.buzzer.buzzedTeam && state.buzzer.buzzedTeam !== prevBuzzedTeamRef.current) {
+            prevBuzzedTeamRef.current = state.buzzer.buzzedTeam;
+            setBuzzFlash(state.buzzer.buzzedTeam);
+            const t = setTimeout(() => setBuzzFlash(null), 1800);
+            return () => clearTimeout(t);
+        } else if (!state?.buzzer.buzzedTeam) {
+            prevBuzzedTeamRef.current = null;
+        }
+    }, [state?.buzzer.buzzedTeam]);
+
+    // ─── Round transition overlay ────────────────────────────
+    useEffect(() => {
+        if (!state) return;
+        if (state.currentRound !== prevRoundRef.current && state.currentRound > 1) {
+            setRoundTransitionData({ round: state.currentRound, orangeScore: state.orangeScore, greenScore: state.greenScore });
+            setShowRoundTransition(true);
+            const t = setTimeout(() => setShowRoundTransition(false), 2800);
+            prevRoundRef.current = state.currentRound;
+            return () => clearTimeout(t);
+        } else {
+            prevRoundRef.current = state.currentRound;
+        }
+    }, [state?.currentRound]);
 
     // Check if session doesn't exist after connection
     useEffect(() => {
@@ -740,30 +775,18 @@ export default function GamePage() {
                         </div>
                     </div>
 
-                    {/* Center: Game Information & Scores */}
+                    {/* Center: Round indicator only — scores are in the right panel */}
                     {state && (
                         <div className="hidden lg:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-6 pointer-events-none">
                             {["idle", "selected", "betweenrounds"].includes(state.phase) ? (
-                                <>
-                                    <div className="flex items-center gap-3 bg-[rgba(251,146,60,0.1)] border border-orange-500/20 px-4 py-1.5 rounded-xl backdrop-blur-sm">
-                                        <span className="font-black text-xl text-orange-400">{state.orangeScore}</span>
-                                        <span className="text-xs font-bold text-orange-400/80">فريق برتقالي</span>
-                                    </div>
-
-                                    <div className="flex flex-col items-center justify-center -mt-0.5">
-                                        <span className="text-[10px] font-black tracking-widest text-(--text-3) uppercase">الجولة</span>
-                                        <span className="text-base font-black text-(--accent) leading-none mt-1">{state.currentRound} <span className="text-[10px] font-medium text-(--text-3)">/ {state.totalRounds}</span></span>
-                                    </div>
-
-                                    <div className="flex items-center gap-3 bg-[rgba(74,222,128,0.1)] border border-green-500/20 px-4 py-1.5 rounded-xl backdrop-blur-sm">
-                                        <span className="text-xs font-bold text-green-400/80">فريق أخضر</span>
-                                        <span className="font-black text-xl text-green-400">{state.greenScore}</span>
-                                    </div>
-                                </>
+                                <div className="flex flex-col items-center justify-center">
+                                    <span className="text-[10px] font-black tracking-widest text-(--text-3) uppercase">الجولة</span>
+                                    <span className="text-base font-black text-(--accent) leading-none mt-1">{state.currentRound} <span className="text-[10px] font-medium text-(--text-3)">/ {state.totalRounds}</span></span>
+                                </div>
                             ) : (
                                 <div className="px-6 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm shadow-inner mt-1">
                                     <span className="text-sm font-bold" style={{ color: "var(--text-1)" }}>
-                                        {state.phase === "lobby" ? "في انتظار بدء اللعبة..." : 
+                                        {state.phase === "lobby" ? "في انتظار بدء اللعبة..." :
                                          state.phase === "win" ? "انتهت اللعبة!" : ""}
                                     </span>
                                 </div>
@@ -877,6 +900,9 @@ export default function GamePage() {
                         greenScore={state.greenScore}
                         currentRound={state.currentRound}
                         totalRounds={state.totalRounds}
+                        orangeHexes={state.grid?.flat().filter(c => c.owner === "orange").length}
+                        greenHexes={state.grid?.flat().filter(c => c.owner === "green").length}
+                        selectedLetter={state.question.letter}
                     />
                 </aside>
 
@@ -955,6 +981,8 @@ export default function GamePage() {
                                     iWon={buzzerResult === "first"}
                                     iLost={buzzerResult === "late"}
                                     isBuzzing={isBuzzing}
+                                    timerSeconds={timerSeconds}
+                                    timerPhase={timerPhase}
                                     onBuzz={handleBuzz}
                                 />
                             </div>
@@ -1031,11 +1059,23 @@ export default function GamePage() {
                 </main>
 
                 {/* Right side: Buzzer (desktop) + GM panel - Better Spaced */}
-                <aside className="hidden sm:flex w-80 xl:w-96 shrink-0 flex-col gap-6 overflow-y-auto pb-8">
+                <aside
+                    className="hidden sm:flex w-80 xl:w-96 shrink-0 flex-col gap-6 overflow-y-auto pb-8"
+                    style={{ transition: "box-shadow 0.4s ease, border-radius 0.4s" }}
+                >
                     {/* Desktop buzzer for non-GM - Better Spaced */}
                     {!isGameMaster && (
                         <>
-                            <div className="surface-card p-3" style={{ minHeight: "250px" }}>
+                            <div
+                                className="surface-card p-3"
+                                style={{
+                                    minHeight: "250px",
+                                    transition: "box-shadow 0.3s ease",
+                                    ...(buzzFlash ? {
+                                        boxShadow: `0 0 0 2px ${buzzFlash === "orange" ? "#f97316" : "#22c55e"}, 0 0 36px ${buzzFlash === "orange" ? "rgba(249,115,22,0.35)" : "rgba(34,197,94,0.35)"}`,
+                                    } : {}),
+                                }}
+                            >
                                 <Buzzer
                                     team={myTeam}
                                     playerName={myPlayer?.name || ""}
@@ -1044,6 +1084,8 @@ export default function GamePage() {
                                     iWon={buzzerResult === "first"}
                                     iLost={buzzerResult === "late"}
                                     isBuzzing={isBuzzing}
+                                    timerSeconds={timerSeconds}
+                                    timerPhase={timerPhase}
                                     onBuzz={handleBuzz}
                                 />
                             </div>
@@ -1055,8 +1097,17 @@ export default function GamePage() {
                         </>
                     )}
 
-                    {/* GM panel — inline on same page */}
+                    {/* GM panel — inline on same page, flash on buzz */}
                     {isGameMaster && (
+                        <div
+                            style={{
+                                transition: "box-shadow 0.4s ease",
+                                borderRadius: "1rem",
+                                ...(buzzFlash ? {
+                                    boxShadow: `0 0 0 2px ${buzzFlash === "orange" ? "#f97316" : "#22c55e"}, 0 0 36px ${buzzFlash === "orange" ? "rgba(249,115,22,0.35)" : "rgba(34,197,94,0.35)"}`,
+                                } : {}),
+                            }}
+                        >
                         <GameMasterPanel
                             selectedLetter={state.question.letter}
                             questionText={state.question.questionText}
@@ -1100,9 +1151,32 @@ export default function GamePage() {
                             onSwapTeams={handleSwapTeams}
                             usedQuestionIds={state.usedQuestionIds}
                         />
+                        </div>
                     )}
                 </aside>
             </div>
+
+            {/* Round transition overlay */}
+            {showRoundTransition && roundTransitionData && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+                    <div className="round-transition-overlay surface-card px-16 py-10 text-center space-y-4" style={{ minWidth: "320px" }}>
+                        <p className="text-xs font-black uppercase tracking-widest" style={{ color: "var(--accent)" }}>الجولة</p>
+                        <p className="text-5xl font-black" style={{ color: "var(--text-1)" }}>{roundTransitionData.round}</p>
+                        <div className="w-16 h-px mx-auto" style={{ background: "var(--border)" }} />
+                        <div className="flex items-center gap-8 justify-center">
+                            <div className="text-center">
+                                <p className="text-3xl font-black" style={{ color: "#fb923c" }}>{roundTransitionData.orangeScore}</p>
+                                <p className="text-xs font-bold mt-1" style={{ color: "rgba(251,146,60,0.6)" }}>الفريق البرتقالي</p>
+                            </div>
+                            <div className="w-px h-10" style={{ background: "var(--border)" }} />
+                            <div className="text-center">
+                                <p className="text-3xl font-black" style={{ color: "#4ade80" }}>{roundTransitionData.greenScore}</p>
+                                <p className="text-xs font-bold mt-1" style={{ color: "rgba(74,222,128,0.6)" }}>الفريق الأخضر</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Buzzer announcement overlay - positioned */}
             {(buzzerAnnounce || (state.buzzer.buzzerIsOpenMode && !state.buzzer.buzzerLocked)) && (
