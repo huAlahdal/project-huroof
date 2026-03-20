@@ -507,7 +507,7 @@ export default function AdminPage() {
 
                         {/* Question Form */}
                         {showQForm && (
-                            <div className="surface-card p-4 shadow-xl">
+                            <div className="surface-card p-4 shadow-xl" style={{ overflow: "visible", zIndex: 50 }}>
                                 <h3 className="text-base font-semibold text-white mb-3">
                                     {editQ ? "تعديل السؤال" : "سؤال جديد"}
                                 </h3>
@@ -708,7 +708,7 @@ export default function AdminPage() {
 
                         {/* User Edit Form */}
                         {showUserForm && editingUser && (
-                            <div className="surface-card p-4 shadow-xl">
+                            <div className="surface-card p-4 shadow-xl" style={{ overflow: "visible", zIndex: 50 }}>
                                 <h3 className="text-base font-semibold text-white mb-3">تعديل المستخدم: {editingUser.username}</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
                                     <div>

@@ -63,12 +63,12 @@ export default function Dropdown({
                     {selectedOption?.icon && (
                         <span className="text-white/60">{selectedOption.icon}</span>
                     )}
-                    <span className={`${slim ? 'text-[11px] font-bold' : 'text-sm'} ${selectedOption ? 'text-white' : 'text-white/40'}`}>
+                    <span className={`${slim ? 'text-[11px] font-bold' : 'text-sm'} ${selectedOption ? 'text-white' : 'text-white'}`}>
                         {selectedOption?.label || placeholder}
                     </span>
                 </div>
                 <svg 
-                    className={`w-3.5 h-3.5 text-white/40 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                    className={`w-3.5 h-3.5 text-white/80 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
@@ -78,7 +78,7 @@ export default function Dropdown({
             </button>
 
             {isOpen && (
-                <div className="absolute z-50 w-full mt-2 bg-slate-900/95  border border-(--border) rounded-xl shadow-2xl overflow-hidden">
+                <div className="absolute z-50 w-full mt-2 bg-(--surface) border border-(--border-strong) rounded-xl shadow-[0_10px_40px_-5px_rgba(0,0,0,0.8)] overflow-hidden">
                     <div className="py-2 max-h-60 overflow-y-auto">
                         {options.map((option) => (
                             <button
@@ -96,11 +96,11 @@ export default function Dropdown({
                                         ? 'opacity-50 cursor-not-allowed' 
                                         : 'cursor-pointer hover:bg-(--surface)'
                                     }
-                                    ${value === option.value ? 'bg-violet-500/10 text-violet-400' : 'text-white/80 hover:text-white'}
+                                    ${value === option.value ? 'bg-violet-500/10 text-violet-400' : 'text-white hover:text-gray-200'}
                                 `}
                             >
                                 {option.icon && (
-                                    <span className="text-white/40">{option.icon}</span>
+                                    <span className="text-white/60">{option.icon}</span>
                                 )}
                                 <span className="text-sm">{option.label}</span>
                                 {value === option.value && (

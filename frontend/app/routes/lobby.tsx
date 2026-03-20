@@ -594,7 +594,7 @@ export default function LobbyPage() {
                                 </div>
 
                                 {/* Settings */}
-                                <div className="surface-card p-4 shadow-xl">
+                                <div className="surface-card p-4 shadow-xl" style={{ overflow: "visible", zIndex: 50 }}>
                                     <h2 className="text-base font-semibold text-white mb-3">الإعدادات</h2>
                                     <div className="space-y-3">
                                         <div>
@@ -733,47 +733,76 @@ export default function LobbyPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {[
                                     { 
+                                        roleId: "teamorange",
                                         label: "الفريق البرتقالي", 
                                         players: orangePlayers, 
                                         color: "from-orange-500 to-red-500",
                                         borderColor: "border-orange-500/20",
-                                        bgColor: "bg-orange-500/10"
+                                        bgColor: "bg-orange-500/10",
+                                        hoverColor: "hover:border-orange-500/50 hover:bg-orange-500/20"
                                     },
                                     { 
+                                        roleId: "teamgreen",
                                         label: "الفريق الأخضر", 
                                         players: greenPlayers, 
                                         color: "from-green-500 to-emerald-500",
                                         borderColor: "border-green-500/20",
-                                        bgColor: "bg-green-500/10"
+                                        bgColor: "bg-green-500/10",
+                                        hoverColor: "hover:border-green-500/50 hover:bg-green-500/20"
                                     },
                                     { 
+                                        roleId: "gamemaster",
                                         label: "مدير اللعبة", 
                                         players: players.filter((p) => p.role === "gamemaster"), 
                                         color: "from-violet-500 to-purple-500",
                                         borderColor: "border-violet-500/20",
-                                        bgColor: "bg-violet-500/10"
+                                        bgColor: "bg-violet-500/10",
+                                        hoverColor: "hover:border-violet-500/50 hover:bg-violet-500/20"
                                     },
                                     { 
+                                        roleId: "spectator",
                                         label: "المشاهدون", 
                                         players: spectators, 
                                         color: "from-slate-500 to-gray-500",
                                         borderColor: "border-slate-500/20",
-                                        bgColor: "bg-slate-500/10"
+                                        bgColor: "bg-slate-500/10",
+                                        hoverColor: "hover:border-slate-500/50 hover:bg-slate-500/20"
                                     },
-                                ].map((team) => (
-                                    <div key={team.label} className={`rounded-xl border ${team.borderColor} ${team.bgColor} p-4`}>
-                                        <h3 className={`text-sm font-semibold mb-3 bg-gradient-to-r ${team.color} bg-clip-text text-transparent`}>
-                                            {team.label}
-                                        </h3>
-                                        <div className="space-y-2">
+                                ].map((team) => {
+                                    const isActive = myPlayer?.role === team.roleId;
+                                    const canJoin = !isActive && !(team.roleId === "gamemaster" && hasGameMaster && !isGameMaster);
+                                    
+                                    return (
+                                        <div 
+                                            key={team.label} 
+                                            className={`rounded-xl border ${team.borderColor} ${team.bgColor} p-4 transition-all duration-300 relative ${
+                                                canJoin ? `cursor-pointer ${team.hoverColor} group` : ''
+                                            } ${isActive ? 'ring-2 ring-white/20' : ''}`}
+                                            onClick={() => {
+                                                if (canJoin) handleSetRole(team.roleId);
+                                            }}
+                                        >
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h3 className={`text-sm font-semibold bg-gradient-to-r ${team.color} bg-clip-text text-transparent flex items-center gap-2`}>
+                                                    {team.label}
+                                                    {isActive && <span className="text-xs text-white/50 bg-white/10 px-2 py-0.5 rounded-full font-normal tracking-wide">أنت هنا</span>}
+                                                </h3>
+                                                {canJoin && (
+                                                    <span className="text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0 duration-300 px-2 py-1 rounded-md bg-white/10" style={{ color: "var(--text-1)" }}>
+                                                        انضمام
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="space-y-2 relative z-10">
                                             {team.players.map((p) => (
                                                 <div
                                                     key={p.id}
                                                     className={`group relative rounded-lg bg-[var(--surface)] border border-[var(--border)] p-3 transition-all duration-200 ${
                                                         isHost && p.id !== myPlayerId ? 'cursor-pointer hover:bg-[var(--surface-hover)]' : ''
                                                     }`}
-                                                    onClick={() => {
+                                                    onClick={(e) => {
                                                         if (isHost && p.id !== myPlayerId) {
+                                                            e.stopPropagation();
                                                             setSelectedPlayerId(selectedPlayerId === p.id ? null : p.id);
                                                         }
                                                     }}
@@ -880,11 +909,16 @@ export default function LobbyPage() {
                                                 </div>
                                             ))}
                                             {team.players.length === 0 && (
-                                                <p className="text-center py-4 text-white/40 text-sm">لا يوجد لاعبون</p>
+                                                <div className="flex flex-col items-center justify-center py-6 gap-2 text-white/30 border-2 border-dashed border-white/5 rounded-lg transition-colors group-hover:border-white/20 group-hover:text-white/50">
+                                                    <UserIcon className="w-6 h-6 mb-1 opacity-50" />
+                                                    <p className="text-xs font-medium">لا يوجد لاعبون</p>
+                                                    {canJoin && <p className="text-[10px] font-bold mt-1 text-white/50">انقر للانضمام</p>}
+                                                </div>
                                             )}
                                         </div>
                                     </div>
-                                ))}
+                                );
+                            })}
                             </div>
                         </div>
 
