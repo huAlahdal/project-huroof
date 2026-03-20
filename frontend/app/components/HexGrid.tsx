@@ -89,9 +89,12 @@ const HexGrid = memo(function HexGrid({
                     return (
                         <g
                             key={cell.id}
-                            className={canClick || canChangeOwner ? "hex-cell" : ""}
+                            className={`transition-all duration-300 ${cell.isSelected ? "hex-selected" : ""} ${canClick || canChangeOwner ? "hex-cell" : ""}`}
                             onClick={handleClick}
-                            style={{ cursor: canClick || canChangeOwner ? "pointer" : "default" }}
+                            style={{ 
+                                cursor: canClick || canChangeOwner ? "pointer" : "default",
+                                transformOrigin: `${cx}px ${cy}px`,
+                            }}
                         >
                             <polygon
                                 points={hexPoints(cx, cy, innerSize + 4)}

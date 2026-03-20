@@ -225,7 +225,7 @@ export default function GamePage() {
     // Timer state — computed from server timestamps so all clients stay in sync
     const [timerPhase, setTimerPhase] = useState<"first" | "second" | "expired" | "open" | null>(null);
     const [timerSeconds, setTimerSeconds] = useState(0);
-    const [timerPosition, setTimerPosition] = useState<"bottom-left" | "bottom-center" | "bottom-right" | "top-left" | "top-center" | "top-right">("bottom-right");
+    const [timerPosition, setTimerPosition] = useState<"bottom-left" | "bottom-center" | "bottom-right" | "top-left" | "top-center" | "top-right" | "center">("bottom-right");
     const prevTimerPhaseRef = useRef<string | null>(null);
     // Holds the current interval's cancel fn so GM action handlers can stop it immediately
     const cancelTimerRef = useRef<(() => void) | null>(null);
@@ -787,6 +787,7 @@ export default function GamePage() {
                                     { value: "top-left", label: "أعلى يسار" },
                                     { value: "top-center", label: "أعلى وسط" },
                                     { value: "top-right", label: "أعلى يمين" },
+                                    { value: "center", label: "الوسط" },
                                 ]}
                             />
                         </div>
@@ -960,11 +961,14 @@ export default function GamePage() {
                         )}
                     </div>
 
-                    {/* Selected cell info (for non-GM) - Better Spaced */}
+                    {/* Selected cell info (for non-GM) - anchored to bottom */}
                     {isSelected && state.selectedCellId && !isGameMaster && (
-                        <div className="w-full max-w-lg mx-auto rounded-xl bg-(--surface) border border-(--border) px-6 py-4 text-center fade-in-scale shadow-lg mt-4">
-                            <p className="text-purple-300 text-xs font-semibold">
-                                حرف <span className="text-white font-black text-base">«{state.question.letter}»</span> — بانتظار إجابة الفرق
+                        <div className="fixed bottom-0 left-0 right-0 py-3 bg-(--surface) border-t border-(--border) text-center fade-in-scale z-30 flex items-center justify-center gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.2)]">
+                            <span className="w-8 h-8 rounded-lg flex items-center justify-center text-lg font-black text-white shrink-0" style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)", boxShadow: "0 0 10px rgba(168,85,247,0.5)" }}>
+                                {state.question.letter}
+                            </span>
+                            <p className="text-purple-200 text-sm font-bold m-0 tracking-wide">
+                                بانتظار إجابة الفرق...
                             </p>
                         </div>
                     )}
@@ -972,7 +976,7 @@ export default function GamePage() {
                     {/* Player list on mobile for non-GM */}
                     {!isGameMaster && (
                         <div className="surface-card p-3 sm:hidden">
-                            <PlayerList players={state.players} />
+                            <PlayerList players={state.players} currentUserId={user?.id} />
                         </div>
                     )}
 
@@ -1046,7 +1050,7 @@ export default function GamePage() {
                             
                             {/* Player list for non-GM */}
                             <div className="surface-card p-3">
-                                <PlayerList players={state.players} />
+                                <PlayerList players={state.players} currentUserId={user?.id} />
                             </div>
                         </>
                     )}
@@ -1104,11 +1108,12 @@ export default function GamePage() {
             {(buzzerAnnounce || (state.buzzer.buzzerIsOpenMode && !state.buzzer.buzzerLocked)) && (
                 <div
                     className={`fixed z-40 fade-in-scale transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-                        timerPosition.includes('top') ? 'top-8' : 'bottom-8'
-                    } ${
+                        timerPosition === 'center' ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' :
+                        `${timerPosition.includes('top') ? 'top-8' : 'bottom-8'} ${
                         timerPosition.includes('left') ? 'left-8' : 
                         timerPosition.includes('right') ? 'right-8' : 
                         'left-1/2 -translate-x-1/2'
+                        }`
                     }`}
                 >
                     <div

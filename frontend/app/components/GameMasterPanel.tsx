@@ -255,17 +255,17 @@ export default function GameMasterPanel({
                     </div>
 
                     {/* Question text */}
-                    <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div className="rounded-xl p-4 shadow-inner" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)" }}>
                         <p className="text-[10px] font-bold mb-1.5 uppercase tracking-wide" style={{ color: "var(--text-4)" }}>السؤال</p>
-                        <p className="text-sm font-bold leading-snug" style={{ color: "var(--text-1)" }}>
+                        <p className="text-xl font-black leading-relaxed" style={{ color: "var(--text-1)" }}>
                             {questionText || <span style={{ color: "var(--text-4)" }}>لم يختر سؤال بعد</span>}
                         </p>
                     </div>
 
                     {/* Answer */}
-                    <div className="rounded-xl p-3" style={{ background: "rgba(124,58,237,0.12)", border: "1px solid rgba(168,85,247,0.35)" }}>
-                        <p className="text-[10px] font-bold mb-1.5 uppercase tracking-wide" style={{ color: "#a78bfa" }}>الإجابة </p>
-                        <p className="text-base font-black" style={{ color: "var(--text-1)" }}>{answerText || ""}</p>
+                    <div className="rounded-xl p-3 shadow-inner" style={{ background: "rgba(124,58,237,0.18)", border: "1px solid rgba(168,85,247,0.45)" }}>
+                        <p className="text-[10px] font-bold mb-1.5 uppercase tracking-wide" style={{ color: "#c4b5fd" }}>الإجابة </p>
+                        <p className="text-lg font-black" style={{ color: "var(--text-1)" }}>{answerText || ""}</p>
                     </div>
 
                     {/* Action row */}
@@ -276,16 +276,16 @@ export default function GameMasterPanel({
                                 ? { background: "rgba(168,85,247,0.2)", borderColor: "rgba(168,85,247,0.4)", color: "#d8b4fe" }
                                 : {}}
                         >
-                            {showQuestion ? " إخفاء" : " إظهار"}
+                            {showQuestion ? "👁️ إخفاء" : "👁️ إظهار"}
                         </ActionBtn>
                         <ActionBtn onClick={onRefreshQuestion} style={{ color: "#facc15", borderColor: "rgba(234,179,8,0.3)", background: "rgba(234,179,8,0.08)" }}>
-                             بديل
+                             🔄 بديل
                         </ActionBtn>
                         <ActionBtn onClick={() => setShowBrowser(true)} style={{ color: "var(--accent)", borderColor: "rgba(168,85,247,0.25)", background: "rgba(168,85,247,0.08)" }}>
-                             بنك
+                             🏦 بنك
                         </ActionBtn>
                         <ActionBtn onClick={onPickRandom} style={{ color: "#38bdf8", borderColor: "rgba(14,165,233,0.25)", background: "rgba(14,165,233,0.08)" }}>
-                             عشوائي
+                             🎲 عشوائي
                         </ActionBtn>
                     </div>
 
@@ -372,20 +372,28 @@ export default function GameMasterPanel({
         if (!buzzedTeam) {
             return (
                 <div className="rounded-2xl p-3 space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-4 mb-2">
                         <div>
-                            <label className="text-[10px] font-semibold block mb-1" style={{ color: "var(--text-4)" }}> الضاغط (ث)</label>
-                            <input type="number" min={1} max={60} value={buzzerTimerFirst} onChange={(e) => onSetTimerConfig(Number(e.target.value) || 5, undefined)} className="input-field text-center text-sm w-full" style={{ padding: "0.4rem" }} />
+                            <label className="text-[10px] font-semibold block mb-2 text-center" style={{ color: "var(--text-3)" }}>⏱️ المحاولة (ث)</label>
+                            <div className="flex items-center gap-1 justify-center bg-white/5 rounded-lg p-1 border border-white/10">
+                                <button onClick={() => onSetTimerConfig(Math.max(1, buzzerTimerFirst - 1), undefined)} className="w-8 h-8 rounded bg-white/10 text-white font-bold active:bg-white/20 transition-colors flex items-center justify-center">-</button>
+                                <span className="font-black w-8 text-center text-lg">{buzzerTimerFirst}</span>
+                                <button onClick={() => onSetTimerConfig(buzzerTimerFirst + 1, undefined)} className="w-8 h-8 rounded bg-white/10 text-white font-bold active:bg-white/20 transition-colors flex items-center justify-center">+</button>
+                            </div>
                         </div>
                         <div>
-                            <label className="text-[10px] font-semibold block mb-1" style={{ color: "var(--text-4)" }}> الآخر (ث)</label>
-                            <input type="number" min={1} max={60} value={buzzerTimerSecond} onChange={(e) => onSetTimerConfig(undefined, Number(e.target.value) || 10)} className="input-field text-center text-sm w-full" style={{ padding: "0.4rem" }} />
+                            <label className="text-[10px] font-semibold block mb-2 text-center" style={{ color: "var(--text-3)" }}>⏱️ النقاش (ث)</label>
+                            <div className="flex items-center gap-1 justify-center bg-white/5 rounded-lg p-1 border border-white/10">
+                                <button onClick={() => onSetTimerConfig(undefined, Math.max(1, buzzerTimerSecond - 1))} className="w-8 h-8 rounded bg-white/10 text-white font-bold active:bg-white/20 transition-colors flex items-center justify-center">-</button>
+                                <span className="font-black w-8 text-center text-lg">{buzzerTimerSecond}</span>
+                                <button onClick={() => onSetTimerConfig(undefined, buzzerTimerSecond + 1)} className="w-8 h-8 rounded bg-white/10 text-white font-bold active:bg-white/20 transition-colors flex items-center justify-center">+</button>
+                            </div>
                         </div>
                     </div>
-                    <button className="w-full py-2 rounded-xl font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed" style={{ background: "rgba(234,179,8,0.10)", border: "1px solid rgba(234,179,8,0.30)", color: "#facc15", cursor: hasQuestion ? "pointer" : "not-allowed" }} onClick={onOpenBuzzer} disabled={!hasQuestion}>
-                         فتح الجرس للجميع
+                    <button className="w-full py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95" style={{ background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.40)", color: "#facc15", cursor: hasQuestion ? "pointer" : "not-allowed", boxShadow: hasQuestion ? "0 4px 12px rgba(234,179,8,0.15)" : "none" }} onClick={onOpenBuzzer} disabled={!hasQuestion}>
+                         🔓 فتح الجرس للجميع
                     </button>
-                    <p className="text-xs text-center" style={{ color: "var(--text-4)" }}> بانتظار ضغط الجرس...</p>
+                    <p className="text-xs text-center mt-2 font-medium" style={{ color: "var(--text-4)" }}> بانتظار ضغط الجرس...</p>
                 </div>
             );
         }
@@ -446,9 +454,9 @@ export default function GameMasterPanel({
 
                 {/* Actions */}
                 <div className="px-3 pb-3 flex gap-1.5">
-                    <button className="flex-1 py-1.5 rounded-xl font-bold text-xs" style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "var(--text-2)", cursor: "pointer" }} onClick={onResetBuzzer}> تعيين</button>
-                    {!passedToOtherTeamAt && <button className="flex-1 py-1.5 rounded-xl font-bold text-xs" style={{ background: buzzedTeam === "orange" ? "rgba(34,197,94,0.14)" : "rgba(249,115,22,0.14)", border: `1px solid ${buzzedTeam === "orange" ? "#22c55e40" : "#f9731640"}`, color: buzzedTeam === "orange" ? "#4ade80" : "#fb923c", cursor: "pointer" }} onClick={onPassToOtherTeam}> تمرير</button>}
-                    <button className="flex-1 py-1.5 rounded-xl font-bold text-xs" style={{ background: buzzerIsOpenMode ? "rgba(234,179,8,0.22)" : "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#facc15", cursor: "pointer" }} onClick={onOpenBuzzer}> فتح</button>
+                    <button className="flex-1 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1" style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "var(--text-2)", cursor: "pointer" }} onClick={onResetBuzzer}> 🔄 تعيين</button>
+                    {!passedToOtherTeamAt && <button className="flex-1 py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1" style={{ background: buzzedTeam === "orange" ? "rgba(34,197,94,0.14)" : "rgba(249,115,22,0.14)", border: `1px solid ${buzzedTeam === "orange" ? "#22c55e40" : "#f9731640"}`, color: buzzedTeam === "orange" ? "#4ade80" : "#fb923c", cursor: "pointer" }} onClick={onPassToOtherTeam}> ➡️ تمرير</button>}
+                    <button className="flex-1 py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1" style={{ background: buzzerIsOpenMode ? "rgba(234,179,8,0.22)" : "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#facc15", cursor: "pointer" }} onClick={onOpenBuzzer}> 🔓 فتح</button>
                 </div>
             </div>
         );
@@ -487,7 +495,7 @@ export default function GameMasterPanel({
                 </div>
 
                 {/*  4. PLAYERS  */}
-                <Section icon="" title="إدارة اللاعبين" defaultOpen={false} count={players.filter(p => p.role !== "gamemaster").length}>
+                <Section icon="👥 " title="إدارة اللاعبين" defaultOpen={false} count={players.filter(p => p.role !== "gamemaster").length}>
                     <div className="space-y-1.5">
                         {players.map((p) => {
                             const isOrange = p.role === "teamorange";
@@ -554,10 +562,10 @@ export default function GameMasterPanel({
                 </Section>
 
                 {/*  5. CONTROLS  */}
-                <Section icon="" title="التحكم بالجلسة" defaultOpen={false}>
+                <Section icon="⚙️ " title="التحكم بالجلسة" defaultOpen={false}>
                     <div className="space-y-2">
                         <button className="w-full py-2.5 rounded-xl font-bold text-sm" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--text-1)", cursor: "pointer" }} onClick={onNextRound}>
-                             الجولة التالية
+                            ⏭️ الجولة التالية
                         </button>
 
                         <button
@@ -578,7 +586,7 @@ export default function GameMasterPanel({
                             </div>
                         ) : (
                             <button className="w-full py-2 rounded-xl font-bold text-xs" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.22)", color: "#f87171", cursor: "pointer" }} onClick={() => setConfirmReset(true)}>
-                                 إعادة اللعبة من البداية
+                                🗑️ إعادة اللعبة من البداية
                             </button>
                         )}
 
@@ -594,7 +602,7 @@ export default function GameMasterPanel({
                             </div>
                         ) : (
                             <button className="w-full py-2 rounded-xl font-bold text-xs" style={{ background: "rgba(220,38,38,0.07)", border: "1px solid rgba(220,38,38,0.20)", color: "#fca5a5", cursor: "pointer" }} onClick={() => setConfirmEnd(true)}>
-                                 إنهاء الجلسة نهائيا
+                                🛑 إنهاء الجلسة نهائيا
                             </button>
                         )}
                     </div>

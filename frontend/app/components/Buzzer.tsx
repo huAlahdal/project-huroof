@@ -120,7 +120,7 @@ const Buzzer = memo(function Buzzer({
 
                 {/* Main buzzer circle */}
                 <div
-                    className={!isLocked ? "buzzer-ready" : ""}
+                    className={!isLocked ? (isBuzzing ? "buzzer-pressed" : "buzzer-ready") : ""}
                     style={{
                         position: "relative",
                         width: "14rem",
@@ -130,22 +130,26 @@ const Buzzer = memo(function Buzzer({
                         alignItems: "center",
                         justifyContent: "center",
                         background: isLocked
-                            ? "linear-gradient(145deg, #555 0%, #333 100%)"
+                            ? "linear-gradient(145deg, #444 0%, #222 100%)"
                             : `linear-gradient(145deg, ${primaryColor} 0%, ${darkColor} 100%)`,
                         boxShadow: isLocked
-                            ? "0 8px 32px rgba(0,0,0,0.4), inset 0 -4px 12px rgba(0,0,0,0.3)"
-                            : `0 8px 48px ${primaryColor}80, inset 0 -4px 12px rgba(0,0,0,0.3), 0 0 100px ${primaryColor}30`,
-                        border: `4px solid ${isLocked ? "#666" : primaryColor}`,
+                            ? "0 4px 16px rgba(0,0,0,0.6), inset 0 -2px 8px rgba(0,0,0,0.5)"
+                            : (isBuzzing 
+                                ? `0 2px 8px rgba(0,0,0,0.8), inset 0 8px 16px rgba(0,0,0,0.6)`
+                                : `0 12px 48px ${primaryColor}90, inset 0 -6px 16px rgba(0,0,0,0.4), 0 0 120px ${primaryColor}40`),
+                        border: `6px solid ${isLocked ? "#555" : primaryColor}`,
                         color: primaryColor,
-                        transition: "all 0.3s ease",
+                        transform: isLocked ? "scale(0.95)" : isBuzzing ? "scale(0.9)" : "scale(1)",
+                        transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
                         cursor: isLocked ? "not-allowed" : "pointer",
+                        filter: isLocked ? "grayscale(80%) opacity(0.7)" : "none",
                     }}
                 >
-                    <div className="text-center">
-                        <span className="text-white text-6xl font-black block">
+                    <div className="text-center" style={{ transform: isBuzzing ? "translateY(4px)" : "none", transition: "transform 0.15s ease" }}>
+                        <span className="text-white text-6xl font-black block" style={{ textShadow: !isLocked ? "0 4px 12px rgba(0,0,0,0.3)" : "none" }}>
                             {isLocked ? "🔒" : "🔔"}
                         </span>
-                        <span className="text-white text-xl font-black block mt-2">
+                        <span className="text-white text-xl font-black block mt-3" style={{ textShadow: !isLocked ? "0 2px 8px rgba(0,0,0,0.3)" : "none" }}>
                             {isLocked ? "مقفل" : "اضغط!"}
                         </span>
                     </div>
