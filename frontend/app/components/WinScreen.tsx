@@ -97,8 +97,8 @@ export default function WinScreen({
     return (
         <>
             <Confetti />
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-40 flex items-center justify-center px-4">
-                <div className="glass-card w-full max-w-lg p-8 text-center shadow-2xl fade-in-scale">
+            <div className="fixed inset-0 bg-black/70  z-40 flex items-center justify-center px-4">
+                <div className="surface-card w-full max-w-lg p-8 text-center shadow-2xl fade-in-scale">
                     {/* Trophy */}
                     <div className="text-7xl mb-4 logo-spin">
                         {isTiebreaker ? "⚔️" : isDraw ? "🤝" : "🏆"}
@@ -177,7 +177,7 @@ export default function WinScreen({
                                 </button>
                             )}
                             <button
-                                className="px-6 py-3 rounded-xl font-black text-white text-base bg-white/10 hover:bg-white/15 transition-colors"
+                                className="px-6 py-3 rounded-xl font-black text-white text-base bg-[var(--surface-hover)] hover:bg-white/15 transition-colors"
                                 onClick={onRestart}
                             >
                                 🔄 العب مجدداً

@@ -21,7 +21,7 @@ const ScoreBoard = memo(function ScoreBoard({
     return (
         <div className="flex flex-col gap-4 w-full">
             {/* Round info */}
-            <div className="glass-card px-4 py-3 text-center">
+            <div className="surface-card px-4 py-3 text-center">
                 <p className="text-purple-300 text-xs font-semibold uppercase tracking-widest mb-1">الجولة</p>
                 <p className="text-white font-black text-2xl">
                     {currentRound} / {totalRounds}
@@ -33,7 +33,7 @@ const ScoreBoard = memo(function ScoreBoard({
                 { name: orangeName, score: orangeScore, team: "orange" as const },
                 { name: greenName, score: greenScore, team: "green" as const },
             ].map((t) => (
-                <div key={t.team} className="glass-card px-4 py-4 text-center">
+                <div key={t.team} className="surface-card px-4 py-4 text-center">
                     <div
                         className="w-10 h-10 rounded-full mx-auto mb-2 flex items-center justify-center font-black text-white text-base"
                         style={{
@@ -60,7 +60,7 @@ const ScoreBoard = memo(function ScoreBoard({
             ))}
 
             {/* Win condition legend */}
-            <div className="glass-card px-4 py-3">
+            <div className="surface-card px-4 py-3">
                 <p className="text-white/40 text-xs text-center font-semibold mb-2">كيفية الفوز</p>
                 <div className="space-y-1">
                     <div className="flex items-center gap-2 text-xs">

@@ -13,6 +13,7 @@ import WinScreen from "~/components/WinScreen";
 import PlayerList from "~/components/PlayerList";
 import Dropdown from "~/components/Dropdown";
 import ChangeTeamModal from "~/components/ChangeTeamModal";
+import ThemeToggle from "~/components/ThemeToggle";
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -703,61 +704,138 @@ export default function GamePage() {
                     <span>{error}</span>
                     <button 
                         onClick={() => window.location.reload()}
-                        className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md text-sm font-semibold transition-colors"
+                        className="px-3 py-1 bg-(--surface-active) hover:bg-white/30 rounded-md text-sm font-semibold transition-colors"
                     >
                         إعادة المحاولة
                     </button>
                 </div>
             )}
             
-            {/* Top bar - More compact */}
-            <header className="flex items-center justify-between px-4 sm:px-6 py-2 border-b border-white/5">
-                <div className="flex items-center gap-2">
-                    <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-base font-black text-white"
-                        style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)" }}
-                    >
-                        ح
+            {/* Modern Floating Header */}
+            <header className="relative z-40 px-4 sm:px-8 pt-4 pb-2 flex justify-center w-full">
+                <div className="flex items-center justify-between w-full h-14 rounded-2xl px-4 backdrop-blur-md border shadow-lg transition-colors border-(--border-strong) bg-[rgba(30,21,54,0.8)]"
+                     style={{ backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}>
+                    
+                    {/* Left: Branding & Session ID */}
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => navigate("/")} className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center font-black text-white transition-transform hover:scale-105"
+                                style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)", boxShadow: "0 4px 12px rgba(124,58,237,0.4)" }}
+                                title="الرئيسية">
+                            ح
+                        </button>
+                        <div className="flex flex-col justify-center">
+                            <span className="font-black text-[13px] leading-tight" style={{ color: "var(--text-1)" }}>حروف و أسئلة</span>
+                            <div className="flex items-center gap-1.5 opacity-70 hover:opacity-100 transition-opacity cursor-pointer group"
+                                 onClick={() => {
+                                     navigator.clipboard.writeText(sessionId || "");
+                                     setNotification("تم نسخ رمز الجلسة بنجاح!");
+                                     setTimeout(() => setNotification(""), 3000);
+                                 }}
+                                 title="نسخ رمز الجلسة">
+                                <span className="text-[10px] font-mono tracking-widest font-black" style={{ color: "var(--accent)" }} dir="ltr">{sessionId}</span>
+                                <svg className="w-3 h-3 text-(--accent) opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <p className="font-black text-xs text-white/90">اللعبة</p>
-                        <p className="text-white/30 text-[10px] font-mono hidden sm:inline" dir="ltr">{sessionId}</p>
+
+                    {/* Center: Game Information & Scores */}
+                    {state && (
+                        <div className="hidden lg:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-6 pointer-events-none">
+                            {["idle", "selected", "betweenrounds"].includes(state.phase) ? (
+                                <>
+                                    <div className="flex items-center gap-3 bg-[rgba(251,146,60,0.1)] border border-orange-500/20 px-4 py-1.5 rounded-xl backdrop-blur-sm">
+                                        <span className="font-black text-xl text-orange-400">{state.orangeScore}</span>
+                                        <span className="text-xs font-bold text-orange-400/80">فريق برتقالي</span>
+                                    </div>
+
+                                    <div className="flex flex-col items-center justify-center -mt-0.5">
+                                        <span className="text-[10px] font-black tracking-widest text-(--text-3) uppercase">الجولة</span>
+                                        <span className="text-base font-black text-(--accent) leading-none mt-1">{state.currentRound} <span className="text-[10px] font-medium text-(--text-3)">/ {state.totalRounds}</span></span>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 bg-[rgba(74,222,128,0.1)] border border-green-500/20 px-4 py-1.5 rounded-xl backdrop-blur-sm">
+                                        <span className="text-xs font-bold text-green-400/80">فريق أخضر</span>
+                                        <span className="font-black text-xl text-green-400">{state.greenScore}</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="px-6 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm shadow-inner mt-1">
+                                    <span className="text-sm font-bold" style={{ color: "var(--text-1)" }}>
+                                        {state.phase === "lobby" ? "في انتظار بدء اللعبة..." : 
+                                         state.phase === "win" ? "انتهت اللعبة!" : ""}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Right: Controls */}
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="hidden sm:flex items-center">
+                            <span className="text-[11px] font-bold me-1.5" style={{ color: "var(--text-3)" }}>المؤقت:</span>
+                            <Dropdown
+                                value={timerPosition}
+                                onChange={(value) => setTimerPosition(value as any)}
+                                className="w-[105px]"
+                                slim
+                                options={[
+                                    { value: "bottom-left", label: "أسفل يسار" },
+                                    { value: "bottom-center", label: "أسفل وسط" },
+                                    { value: "bottom-right", label: "أسفل يمين" },
+                                    { value: "top-left", label: "أعلى يسار" },
+                                    { value: "top-center", label: "أعلى وسط" },
+                                    { value: "top-right", label: "أعلى يمين" },
+                                ]}
+                            />
+                        </div>
+
+                        <div className="w-px h-5 bg-(--border) mx-0.5 hidden sm:block"></div>
+
+                        {user && !isGameMaster && (
+                            <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg border border-(--border)" style={{ background: "rgba(255,255,255,0.03)" }}>
+                                <span className="text-[11px] font-bold text-white/50">👤</span>
+                                <span className="text-[11px] font-bold" style={{ color: myTeam === "orange" ? "#fb923c" : myTeam === "green" ? "#4ade80" : "var(--text-2)" }}>
+                                    {user.inGameName}
+                                </span>
+                            </div>
+                        )}
+
+                        {user && isGameMaster && (
+                            <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg border border-purple-500/30 bg-purple-500/10">
+                                <span className="text-[11px] font-bold text-purple-300">👑</span>
+                                <span className="text-[11px] font-bold text-purple-300">
+                                    {user.inGameName}
+                                </span>
+                            </div>
+                        )}
+                        
+                        <div className="w-px h-5 bg-(--border) mx-0.5 hidden sm:block"></div>
+
+                        <div className="scale-[0.80] sm:scale-85 origin-right">
+                            <ThemeToggle />
+                        </div>
+                        
+                        <button 
+                            className="px-2.5 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 hover:bg-red-500/15"
+                            style={{ border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", background: "rgba(239,68,68,0.05)" }}
+                            onClick={handleLeaveGame}
+                        >
+                            <span className="hidden sm:inline">خروج</span>
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                        </button>
                     </div>
-                </div>
-                <div className="flex gap-3 items-center">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-white/50">المؤقت:</span>
-                        <Dropdown
-                            value={timerPosition}
-                            onChange={(value) => setTimerPosition(value as any)}
-                            className="w-32"
-                            options={[
-                                { value: "bottom-left", label: "أسفل يسار" },
-                                { value: "bottom-center", label: "أسفل وسط" },
-                                { value: "bottom-right", label: "أسفل يمين" },
-                                { value: "top-left", label: "أعلى يسار" },
-                                { value: "top-center", label: "أعلى وسط" },
-                                { value: "top-right", label: "أعلى يمين" },
-                            ]}
-                        />
-                    </div>
-                    <button 
-                        className="px-2 py-1 text-xs font-semibold rounded-md transition-all hover:bg-red-600/10"
-                        style={{ background: "none", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171" }}
-                        onClick={handleLeaveGame}
-                        title="مغادرة اللعبة"
-                    >
-                        🚪 خروج
-                    </button>
-                    <button className="btn-ghost px-2 py-1 text-xs" onClick={() => navigate("/")}>🏠</button>
                 </div>
             </header>
 
-            {/* Question banner - More compact */}
+            {/* Question banner - Better Spaced */}
             {state.question.showQuestion && state.question.questionText && (
-                <div className="flex justify-center mt-2 px-3 lg:px-5">
+                <div className="flex justify-center mt-6 px-4 lg:px-8">
                     <div
-                        className="inline-flex items-center gap-2 rounded-lg px-3 py-2 lg:py-2.5 fade-in-scale"
+                        className="inline-flex items-center gap-3 rounded-xl px-6 py-4 lg:py-5 fade-in-scale shadow-lg"
                         style={{
                             background: "linear-gradient(135deg, rgba(124,58,237,0.4), rgba(168,85,247,0.2))",
                             border: "2px solid rgba(168,85,247,0.5)",
@@ -787,10 +865,10 @@ export default function GamePage() {
                 </div>
             )}
 
-            {/* Main content - More compact */}
-            <div className="flex flex-1 gap-3 p-3 lg:p-4 min-h-0 overflow-hidden">
-                {/* Desktop scoreboard - More compact */}
-                <aside className="hidden lg:flex w-52 xl:w-60 shrink-0 flex-col">
+            {/* Main content - Better Spaced */}
+            <div className="flex flex-1 gap-6 sm:gap-8 p-4 sm:p-8 lg:p-10 min-h-0 overflow-hidden w-full">
+                {/* Desktop scoreboard - Better Spaced */}
+                <aside className="hidden lg:flex w-64 xl:w-72 shrink-0 flex-col gap-6">
                     <ScoreBoard
                         orangeName={orangeName}
                         greenName={greenName}
@@ -801,15 +879,15 @@ export default function GamePage() {
                     />
                 </aside>
 
-                {/* Center: grid + controls - More compact */}
-                <main className="flex-1 flex flex-col items-center gap-2 min-w-0">
-                    {/* Mobile scores - More compact */}
-                    <div className="flex lg:hidden gap-2 w-full">
+                {/* Center: grid + controls - Better Spaced */}
+                <main className="flex-1 flex flex-col items-center gap-6 min-w-0">
+                    {/* Mobile scores - Better Spaced */}
+                    <div className="flex lg:hidden gap-4 w-full justify-center max-w-lg mx-auto">
                         {[
                             { name: orangeName, score: state.orangeScore, team: "orange" },
                             { name: greenName, score: state.greenScore, team: "green" },
                         ].map((t) => (
-                            <div key={t.team} className="flex-1 glass-card py-1.5 px-2 flex items-center justify-between">
+                            <div key={t.team} className="flex-1 surface-card py-1.5 px-2 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <div
                                         className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
@@ -839,8 +917,8 @@ export default function GamePage() {
                         ))}
                     </div>
 
-                    {/* Hex grid — hidden on small screens when buzzer needed - More compact */}
-                    <div className="glass-card w-full flex-1 items-center justify-center p-2 lg:p-3 min-h-0 hidden sm:flex">
+                    {/* Hex grid — hidden on small screens when buzzer needed - Better Spaced */}
+                    <div className="rounded-2xl bg-(--surface) border border-(--border) w-full flex-1 items-center justify-center p-4 lg:p-8 min-h-0 hidden sm:flex shadow-xl">
                         <HexGrid
                             grid={state.grid}
                             gridSize={state.gridSize}
@@ -851,10 +929,10 @@ export default function GamePage() {
                         />
                     </div>
 
-                    {/* Mobile: show buzzer or grid - More compact */}
-                    <div className="sm:hidden w-full flex-1 flex flex-col gap-2 min-h-0">
+                    {/* Mobile: show buzzer or grid - Better Spaced */}
+                    <div className="sm:hidden w-full flex-1 flex flex-col gap-4 min-h-0 mt-4">
                         {/* Always show a small grid on mobile too */}
-                        <div className="glass-card w-full p-1.5 flex items-center justify-center" style={{ maxHeight: "40vh" }}>
+                        <div className="surface-card w-full p-1.5 flex items-center justify-center" style={{ maxHeight: "40vh" }}>
                             <HexGrid
                                 grid={state.grid}
                                 gridSize={state.gridSize}
@@ -867,7 +945,7 @@ export default function GamePage() {
 
                         {/* Mobile buzzer for non-GM */}
                         {!isGameMaster && myTeam && (
-                            <div className="glass-card p-4">
+                            <div className="surface-card p-4">
                                 <Buzzer
                                     team={myTeam}
                                     playerName={myPlayer?.name || ""}
@@ -882,9 +960,9 @@ export default function GamePage() {
                         )}
                     </div>
 
-                    {/* Selected cell info (for non-GM) - More compact */}
+                    {/* Selected cell info (for non-GM) - Better Spaced */}
                     {isSelected && state.selectedCellId && !isGameMaster && (
-                        <div className="w-full max-w-lg mx-auto glass-card px-4 py-2 text-center fade-in-scale">
+                        <div className="w-full max-w-lg mx-auto rounded-xl bg-(--surface) border border-(--border) px-6 py-4 text-center fade-in-scale shadow-lg mt-4">
                             <p className="text-purple-300 text-xs font-semibold">
                                 حرف <span className="text-white font-black text-base">«{state.question.letter}»</span> — بانتظار إجابة الفرق
                             </p>
@@ -893,14 +971,14 @@ export default function GamePage() {
                     
                     {/* Player list on mobile for non-GM */}
                     {!isGameMaster && (
-                        <div className="glass-card p-3 sm:hidden">
+                        <div className="surface-card p-3 sm:hidden">
                             <PlayerList players={state.players} />
                         </div>
                     )}
 
                     {/* Mobile GM Panel */}
                     {isGameMaster && (
-                        <div className="sm:hidden w-full glass-card p-3 overflow-y-auto" style={{ maxHeight: "60vh" }}>
+                        <div className="sm:hidden w-full surface-card p-3 overflow-y-auto" style={{ maxHeight: "60vh" }}>
                             <GameMasterPanel
                                 selectedLetter={state.question.letter}
                                 questionText={state.question.questionText}
@@ -948,12 +1026,12 @@ export default function GamePage() {
                     )}
                 </main>
 
-                {/* Right side: Buzzer (desktop) + GM panel - More compact */}
-                <aside className="hidden sm:flex w-72 xl:w-80 shrink-0 flex-col gap-2 overflow-y-auto">
-                    {/* Desktop buzzer for non-GM - More compact */}
+                {/* Right side: Buzzer (desktop) + GM panel - Better Spaced */}
+                <aside className="hidden sm:flex w-80 xl:w-96 shrink-0 flex-col gap-6 overflow-y-auto pb-8">
+                    {/* Desktop buzzer for non-GM - Better Spaced */}
                     {!isGameMaster && (
                         <>
-                            <div className="glass-card p-3" style={{ minHeight: "250px" }}>
+                            <div className="surface-card p-3" style={{ minHeight: "250px" }}>
                                 <Buzzer
                                     team={myTeam}
                                     playerName={myPlayer?.name || ""}
@@ -967,7 +1045,7 @@ export default function GamePage() {
                             </div>
                             
                             {/* Player list for non-GM */}
-                            <div className="glass-card p-3">
+                            <div className="surface-card p-3">
                                 <PlayerList players={state.players} />
                             </div>
                         </>
@@ -1034,14 +1112,13 @@ export default function GamePage() {
                     }`}
                 >
                     <div
-                        className="relative overflow-hidden rounded-2xl flex flex-col min-w-[280px] sm:min-w-[340px] shadow-2xl"
+                        className="relative overflow-hidden rounded-2xl flex flex-col min-w-70 sm:min-w-85 shadow-2xl"
                         style={{
                             background: buzzerAnnounce
                                 ? `linear-gradient(145deg, rgba(15, 23, 42, 0.85), rgba(30, 41, 59, 0.95))`
                                 : "linear-gradient(145deg, rgba(15, 23, 42, 0.8), rgba(30, 41, 59, 0.9))",
                             border: `1px solid ${buzzerAnnounce ? activeColor : "#eab308"}50`,
-                            boxShadow: `0 20px 40px -10px rgba(0,0,0,0.5), 0 0 20px -5px ${buzzerAnnounce ? activeColor : "#eab308"}40`,
-                            backdropFilter: "blur(24px)",
+                            boxShadow: `0 20px 40px -10px rgba(0,0,0,0.5), 0 0 20px -5px ${buzzerAnnounce ? activeColor : "#eab308"}40`
                         }}
                     >
                         {/* Decorative Top Glow */}

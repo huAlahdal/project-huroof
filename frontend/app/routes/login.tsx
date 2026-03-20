@@ -54,7 +54,7 @@ export default function LoginPage() {
         </div>
 
         {/* Login form */}
-        <form onSubmit={handleLogin} className="glass-card w-full p-5 fade-in-scale space-y-4">
+        <form onSubmit={handleLogin} className="surface-card w-full p-5 fade-in-scale space-y-4">
           <div>
             <label className="text-xs font-bold block mb-1.5" style={{ color: "var(--accent)" }}>
               البريد الإلكتروني أو اسم المستخدم

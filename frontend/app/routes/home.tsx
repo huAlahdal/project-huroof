@@ -4,9 +4,45 @@ import { invoke, startConnection, resetConnection } from "~/lib/signalr";
 import { useAuth, authHeaders } from "~/contexts/AuthContext";
 import { API_BASE } from "~/lib/api";
 import ThemeToggle from "~/components/ThemeToggle";
+import HexGrid from "~/components/HexGrid";
+import type { GridLayout } from "~/lib/hexUtils";
 
 const BG_LETTERS = ["أ", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ر", "ز", "س", "ش", "ص", "ط", "ع", "غ", "ف", "ق", "ك", "ل", "م", "ن", "ه", "و", "ي"];
 const BG_COLORS = ["#7c3aed", "#f97316", "#22c55e", "#a855f7", "#ec4899", "#f59e0b"];
+
+// Pre-computed stable values for scattered background hexes (prevents re-randomization on re-render)
+const SCATTERED_HEXES = Array.from({ length: 45 }, (_, i) => ({
+  letter: BG_LETTERS[i % BG_LETTERS.length],
+  color: BG_COLORS[i % BG_COLORS.length],
+  size: 30 + ((i * 17 + 7) % 50),
+  top: -10 + ((i * 31 + 13) % 120),
+  left: -10 + ((i * 23 + 5) % 120),
+  delay: (i * 0.7) % 10,
+  duration: 15 + ((i * 11) % 25),
+  rotate: ((i * 37 + 11) % 60) - 30,
+}));
+
+// Mock grid to display in the background
+const MOCK_GRID: GridLayout = Array.from({ length: 5 }, (_, row) =>
+  Array.from({ length: 5 }, (_, col) => {
+    let owner: "orange" | "green" | null = null;
+    let isSelected = false;
+
+    // Create a visual pattern reflecting the game
+    if (row === 2 && col === 2) isSelected = true; // Center cell selected
+    else if ((row === 1 && col === 2) || (row === 2 && col === 1) || (row === 1 && col === 1)) owner = "orange";
+    else if ((row === 3 && col === 2) || (row === 2 && col === 3) || (row === 3 && col === 3)) owner = "green";
+
+    return {
+      id: `${row}-${col}`,
+      row,
+      col,
+      letter: BG_LETTERS[(row * 5 + col) % BG_LETTERS.length],
+      owner,
+      isSelected,
+    };
+  })
+);
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -220,26 +256,56 @@ export default function HomePage() {
 
   return (
     <div className="game-bg min-h-screen relative overflow-hidden flex flex-col items-center justify-center px-4">
-      {/* Background letter decorations */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {BG_LETTERS.map((letter, i) => (
-          <div
-            key={i}
-            className="absolute flex items-center justify-center font-black select-none"
-            style={{
-              left: `${(i * 7.3 + 2) % 94}%`,
-              top: `${(i * 11.7 + 4) % 88}%`,
-              fontSize: `${2.5 + (i % 3) * 0.5}rem`,
-              color: BG_COLORS[i % BG_COLORS.length],
-              opacity: 0.15,
-              transform: `rotate(${i % 2 === 0 ? 15 : -10}deg)`,
-              animation: `hexPulse ${3 + i * 0.15}s ease-in-out ${i * 0.06}s infinite`,
-            }}
-          >
-            {letter}
-          </div>
-        ))}
+      {/* Game Honeycomb Background Pattern */}
+      <div 
+        className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.22] transform scale-[1.2] sm:scale-[1.3] md:scale-110 lg:scale-[1.2]"
+        style={{
+          maskImage: 'radial-gradient(ellipse at center, rgba(0,0,0,1) 10%, rgba(0,0,0,0) 70%)',
+          WebkitMaskImage: 'radial-gradient(ellipse at center, rgba(0,0,0,1) 10%, rgba(0,0,0,0) 70%)',
+          zIndex: 0
+        }}
+      >
+        <div className="w-full max-w-[1200px]">
+          <HexGrid
+            grid={MOCK_GRID}
+            gridSize={5}
+            interactive={false}
+            isGameMaster={false}
+            hexSize={65}
+          />
+        </div>
       </div>
+
+      {/* Scattered Hexes with Letters */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+          {SCATTERED_HEXES.map((hex, i) => (
+            <div
+              key={i}
+              className="absolute flex items-center justify-center font-black animate-pulse"
+              style={{
+                top: `${hex.top}%`,
+                left: `${hex.left}%`,
+                width: hex.size,
+                height: hex.size * 1.15,
+                animationDuration: `${hex.duration}s`,
+                animationDelay: `${hex.delay}s`,
+                transform: `rotate(${hex.rotate}deg)`,
+                opacity: 0.35
+              }}
+            >
+              <svg viewBox="0 0 100 115" className="absolute inset-0 w-full h-full">
+                <polygon
+                  points="50,2.5 97.5,28.75 97.5,86.25 50,112.5 2.5,86.25 2.5,28.75"
+                  fill="var(--bg-3)"
+                  stroke={hex.color}
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span className="relative z-10" style={{ color: hex.color, fontSize: hex.size * 0.45 }}>{hex.letter}</span>
+            </div>
+          ))}
+        </div>
 
       {/* Theme toggle — top right */}
       <div className="fixed top-3 left-3 z-20">
@@ -260,7 +326,7 @@ export default function HomePage() {
         {user && isGuest && (
           <span
             className="px-3 py-1.5 rounded-xl text-xs font-bold"
-            style={{ background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.25)", color: "#facc15" }}
+            style={{ background: "var(--bg-2)", border: "1px solid #facc15", color: "#facc15" }}
           >
             👤 ضيف: {user.inGameName}
           </span>
@@ -289,17 +355,14 @@ export default function HomePage() {
       </div>
 
       {/* Vignette */}
-      <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 75% 65% at center,transparent 0%,rgba(0,0,0,0.4) 100%)" }} />
+      <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 70% 60% at center, transparent 0%, rgba(0,0,0,0.85) 100%)" }} />
 
       {/* Main content */}
-      <div className="relative z-10 flex flex-col items-center gap-6 max-w-lg w-full">
+      <div className="relative z-10 flex flex-col items-center home-main">
         {/* Logo */}
         <div className="text-center fade-in flex flex-col items-center w-full">
-          <div className="relative group mx-auto mb-8 w-32 h-32">
-            {/* Glowing background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-[2.5rem] blur-xl opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
-            
-            {/* Main box */}
+          <div className="relative group mx-auto mb-3 w-24 h-24">
+              {/* Main box */}
             <div
               className="relative flex items-center justify-center w-full h-full rounded-[2.5rem] text-white shadow-2xl overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600"
               style={{
@@ -310,44 +373,41 @@ export default function HomePage() {
                 {/* Central Question Mark */}
                 <span className="text-[5rem] font-black z-10 leading-none drop-shadow-xl" style={{ textShadow: "4px 4px 0px rgba(0,0,0,0.15)" }}>؟</span>
                 {/* Internal Scattered Letters */}
-                <span className="absolute text-5xl font-black opacity-90 -translate-x-5 translate-y-3 rotate-12 text-blue-200 drop-shadow-md">ح</span>
-                <span className="absolute text-4xl font-black opacity-80 translate-x-6 -translate-y-4 -rotate-[15deg] text-pink-200 drop-shadow-md">س</span>
+                <span className="absolute text-5xl font-black -translate-x-5 translate-y-3 rotate-12 text-blue-200">ح</span>
+                <span className="absolute text-4xl font-black translate-x-6 -translate-y-4 -rotate-[15deg] text-pink-200">س</span>
               </div>
             </div>
 
-            {/* Scattered Floating Letters Around */}
-            <div className="absolute -top-3 -left-5 text-2xl font-black text-blue-400 opacity-90 animate-bounce" style={{ animationDelay: "0.1s", animationDuration: "2.5s", textShadow: "0 0 12px rgba(59,130,246,0.8)" }}>م</div>
-            <div className="absolute top-10 -right-6 text-3xl font-black text-pink-400 opacity-90 animate-bounce" style={{ animationDelay: "0.5s", animationDuration: "3s", textShadow: "0 0 12px rgba(236,72,153,0.8)" }}>أ</div>
-            <div className="absolute -bottom-5 left-1 text-2xl font-black text-purple-400 opacity-90 animate-bounce" style={{ animationDelay: "0.3s", animationDuration: "2.8s", textShadow: "0 0 12px rgba(168,85,247,0.8)" }}>ن</div>
-            <div className="absolute bottom-1 -right-5 text-xl font-black text-indigo-400 opacity-90 animate-bounce" style={{ animationDelay: "0.8s", animationDuration: "2.2s", textShadow: "0 0 12px rgba(99,102,241,0.8)" }}>ق</div>
+            {/* Scattered Floating Hexes Around Logo */}
           </div>
           <h1
-            className="text-5xl sm:text-6xl font-black leading-tight mb-2 drop-shadow-sm pb-1"
-            style={{ 
-              background: "linear-gradient(to right, #3b82f6, #8b5cf6, #ec4899)", 
-              WebkitBackgroundClip: "text", 
-              WebkitTextFillColor: "transparent", 
-              backgroundClip: "text" 
+            className="text-4xl sm:text-5xl font-black leading-tight mb-1 relative z-10"
+            style={{
+              background: "linear-gradient(to right, #60a5fa, #a78bfa, #f472b6)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.55))"
             }}
           >
             حروف و أسئلة
           </h1>
-          <p className="text-base font-medium" style={{ color: "var(--text-3)" }}>لعبة ثقافية تفاعلية للفريقين ⚔️</p>
+          <p className="text-sm font-medium relative z-10" style={{ color: "var(--text-2)", textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}>لعبة ثقافية تفاعلية للفريقين ⚔️</p>
         </div>
 
         {/* ── Menu ── */}
         {mode === "menu" && (
-          <div className="flex flex-col gap-2 w-full fade-in" style={{ animationDelay: "0.15s" }}>
+          <div className="home-menu-stack fade-in" style={{ animationDelay: "0.1s" }}>
 
             {/* Active session banner */}
             {activeSession && (
-              <div className="glass-card w-full p-4 space-y-3" style={{ border: "1px solid rgba(124,58,237,0.4)", background: "rgba(124,58,237,0.08)" }}>
+              <div className="home-card w-full p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xl">🔄</span>
                   <div className="flex-1">
-                    <p className="text-sm font-black" style={{ color: "var(--text-1)" }}>لديك جلسة نشطة</p>
-                    <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
-                      الجلسة <span className="font-mono font-bold" style={{ color: "var(--accent)" }}>{activeSession.sessionId}</span>
+                    <p className="text-sm font-black" style={{ color: "#e2d9f3" }}>لديك جلسة نشطة</p>
+                    <p className="text-[11px]" style={{ color: "#a78bcc" }}>
+                      الجلسة <span className="font-mono font-bold" style={{ color: "#c084fc" }}>{activeSession.sessionId}</span>
                       {" — "}
                       {activeSession.phase === "lobby" ? "في الانتظار" : activeSession.phase === "win" ? "انتهت" : "جارية"}
                       {" · "}
@@ -357,23 +417,20 @@ export default function HomePage() {
                 </div>
                 {activeSession.phase !== "lobby" && (
                   <div className="flex gap-3 justify-center text-xs font-bold">
-                    <span style={{ color: "#f97316" }}>🟠 {activeSession.orangeScore}</span>
-                    <span style={{ color: "var(--text-3)" }}>—</span>
-                    <span style={{ color: "#22c55e" }}>🟢 {activeSession.greenScore}</span>
+                    <span style={{ color: "#fb923c" }}>🟠 {activeSession.orangeScore}</span>
+                    <span style={{ color: "#6b7280" }}>—</span>
+                    <span style={{ color: "#4ade80" }}>🟢 {activeSession.greenScore}</span>
                   </div>
                 )}
                 <div className="flex gap-2">
-                  <button
-                    className="btn-primary flex-1 py-3 text-sm"
-                    onClick={handleRejoin}
-                  >
+                  <button className="btn-primary flex-1 py-3 text-sm" onClick={handleRejoin}>
                     🚀 العودة للجلسة
                   </button>
                   <button
                     className="btn-ghost flex-1 py-3 text-sm"
                     onClick={handleLeaveSession}
                     disabled={leavingSession}
-                    style={{ borderColor: "rgba(239,68,68,0.3)", color: "#f87171" }}
+                    style={{ borderColor: "rgba(239,68,68,0.4)", color: "#f87171" }}
                   >
                     {leavingSession ? "⏳ جاري المغادرة..." : "🚪 مغادرة الجلسة"}
                   </button>
@@ -382,32 +439,41 @@ export default function HomePage() {
             )}
 
             {!activeSession && (
-              <>
-                <button className="btn-primary w-full py-4 text-lg tracking-wide" onClick={() => {
-                  if (!user) { setGuestAction("create"); setMode("guest-prompt"); }
-                  else setMode("create");
-                }}>🎮 إنشاء جلسة</button>
-                <button className="btn-ghost w-full py-3 text-sm" onClick={() => {
-                  if (!user) { setGuestAction("join"); setMode("guest-prompt"); }
-                  else setMode("join");
-                }}>🔗 انضمام لجلسة</button>
-              </>
+              <div className="flex flex-col gap-2.5">
+                {/* Create Session */}
+                <button
+                  className="home-action-btn home-action-create"
+                  onClick={() => {
+                    if (!user) { setGuestAction("create"); setMode("guest-prompt"); }
+                    else setMode("create");
+                  }}
+                >🎮 إنشاء جلسة</button>
+
+                {/* Join Session */}
+                <button
+                  className="home-action-btn home-action-join"
+                  onClick={() => {
+                    if (!user) { setGuestAction("join"); setMode("guest-prompt"); }
+                    else setMode("join");
+                  }}
+                >🔗 انضمام لجلسة</button>
+              </div>
             )}
 
             {/* Guest/Auth info banner */}
             {!authLoading && !user && (
-              <div className="glass-card w-full p-3 mt-1 text-center space-y-2">
+              <div className="home-card home-card-muted w-full p-3.5 text-center space-y-2">
                 <p className="text-sm font-bold" style={{ color: "var(--text-1)" }}>مرحباً بك في حروف و أسئلة!</p>
                 <p className="text-xs" style={{ color: "var(--text-3)" }}>
                   يمكنك اللعب كضيف أو تسجيل حساب لحفظ إحصائياتك
                 </p>
                 <div className="flex gap-2 justify-center">
-                  <a href="/login" className="px-4 py-1.5 rounded-xl text-xs font-bold transition-all"
-                    style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(168,85,247,0.3)", color: "var(--accent)", textDecoration: "none" }}>
+                  <a href="/login" className="home-pill-link px-4 py-1.5 text-xs font-bold transition-all"
+                    style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
                     🔑 تسجيل الدخول
                   </a>
-                  <a href="/register" className="px-4 py-1.5 rounded-xl text-xs font-bold transition-all"
-                    style={{ background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", color: "#4ade80", textDecoration: "none" }}>
+                  <a href="/register" className="home-pill-link px-4 py-1.5 text-xs font-bold transition-all"
+                    style={{ borderColor: "#16a34a", color: "#4ade80" }}>
                     📝 إنشاء حساب
                   </a>
                 </div>
@@ -415,21 +481,21 @@ export default function HomePage() {
             )}
 
             {isGuest && (
-              <div className="glass-card w-full p-3 mt-1" style={{ border: "1px solid rgba(234,179,8,0.3)", background: "rgba(234,179,8,0.08)" }}>
+              <div className="home-card home-card-warning w-full p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-base">⚠️</span>
                   <div className="flex-1">
                     <p className="text-xs font-bold" style={{ color: "#facc15" }}>أنت تلعب كضيف</p>
-                    <p className="text-[10px]" style={{ color: "var(--text-3)" }}>لن يتم حفظ إحصائياتك بعد انتهاء الجلسة.</p>
+                    <p className="text-[10px]" style={{ color: "#d9bf8d" }}>لن يتم حفظ إحصائياتك بعد انتهاء الجلسة.</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <a href="/login" className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-center transition-all"
-                    style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(168,85,247,0.35)", color: "var(--accent)", textDecoration: "none" }}>
+                  <a href="/login" className="home-pill-link flex-1 py-1.5 text-[11px] font-bold text-center transition-all"
+                    style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
                     🔑 تسجيل الدخول
                   </a>
-                  <a href="/register" className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-center transition-all"
-                    style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)", color: "#4ade80", textDecoration: "none" }}>
+                  <a href="/register" className="home-pill-link flex-1 py-1.5 text-[11px] font-bold text-center transition-all"
+                    style={{ borderColor: "#16a34a", color: "#4ade80" }}>
                     📝 إنشاء حساب
                   </a>
                 </div>
@@ -438,24 +504,24 @@ export default function HomePage() {
 
             {/* Error in menu mode */}
             {error && (
-              <div className="px-4 py-2 bg-red-500/20 backdrop-blur-xl border border-red-500/30 rounded-lg text-red-400 text-sm font-medium text-center">
+              <div className="px-4 py-2 rounded-lg text-red-400 text-sm font-medium text-center" style={{ background: "#2a0a0a", border: "1px solid #dc2626" }}>
                 {error}
               </div>
             )}
 
-            <div className="glass-card w-full p-3 mt-1">
-              <h2 className="font-black text-sm text-center mb-2" style={{ color: "var(--text-1)" }}>كيف تلعب؟</h2>
-              <div className="space-y-1">
+            <div className="home-card home-card-muted w-full p-3.5">
+              <h2 className="font-black text-xs text-center mb-2.5" style={{ color: "#c084fc" }}>كيف تلعب؟</h2>
+              <div className="space-y-1.5">
                 {[
-                  ["🎲", "أنشئ جلسة أو انضم بالرمز"],
-                  ["👥", "اختر فريقك وعيّن مدير لعبة"],
-                  ["❓", "مدير اللعبة يختار حرفاً ويطرح سؤالاً"],
-                  ["⚡", "اضغط الجرس أولاً للإجابة!"],
-                  ["🏆", "أول فريق يربط مساره يفوز"],
-                ].map(([icon, text], i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <span className="text-base shrink-0">{icon}</span>
-                    <p className="text-xs leading-relaxed" style={{ color: "var(--text-2)" }}>{text}</p>
+                  ["🎲", "أنشئ جلسة أو انضم بالرمز", "#a855f7"],
+                  ["👥", "اختر فريقك وعيّن مدير لعبة", "#14b8a6"],
+                  ["❓", "مدير اللعبة يختار حرفاً ويطرح سؤالاً", "#f59e0b"],
+                  ["⚡", "اضغط الجرس أولاً للإجابة!", "#f97316"],
+                  ["🏆", "أول فريق يربط مساره يفوز", "#4ade80"],
+                ].map(([icon, text, color], i) => (
+                  <div key={i} className="home-tip-item" style={{ borderRight: `3px solid ${color}` }}>
+                    <span className="text-sm shrink-0">{icon}</span>
+                    <p className="text-xs font-semibold" style={{ color: "var(--text-2)" }}>{text}</p>
                   </div>
                 ))}
               </div>
@@ -465,7 +531,7 @@ export default function HomePage() {
 
         {/* ── Create ── */}
         {mode === "create" && (
-          <div className="glass-card w-full p-4 fade-in-scale">
+          <div className="home-card w-full p-4 fade-in-scale">
             <h2 className="text-lg font-black text-center mb-4" style={{ color: "var(--text-1)" }}>⚙️ إنشاء جلسة جديدة</h2>
 
             <div className="mb-3">
@@ -532,7 +598,7 @@ export default function HomePage() {
             </div>
 
             {error && (
-              <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-red-500/20 backdrop-blur-xl border border-red-500/30 rounded-lg text-red-400 text-sm font-medium animate-bounce">
+              <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-red-500/20  border border-red-500/30 rounded-lg text-red-400 text-sm font-medium animate-bounce">
                 {error}
               </div>
             )}
@@ -552,14 +618,14 @@ export default function HomePage() {
 
         {/* ── Guest Prompt ── */}
         {mode === "guest-prompt" && (
-          <div className="glass-card w-full p-4 fade-in-scale text-center space-y-4">
+          <div className="home-card w-full p-4 fade-in-scale text-center space-y-4">
             <div className="text-3xl">👤</div>
             <h2 className="text-lg font-black" style={{ color: "var(--text-1)" }}>
               {guestAction === "create" ? "إنشاء جلسة كضيف" : "انضمام كضيف"}
             </h2>
             
             {/* Guest limitations */}
-            <div className="rounded-lg p-3 text-right" style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)" }}>
+            <div className="rounded-lg p-3 text-right" style={{ background: "rgba(234,179,8,0.08)", border: "1px solid #facc15" }}>
               <p className="text-xs font-bold mb-2" style={{ color: "#facc15" }}>⚠️ قيود وضع الضيف:</p>
               <ul className="space-y-1 text-[11px]" style={{ color: "var(--text-3)" }}>
                 <li>• لن يتم حفظ إحصائيات الألعاب (الانتصارات والمباريات)</li>
@@ -605,11 +671,11 @@ export default function HomePage() {
 
             <div className="flex gap-2">
               <a href="/login" className="flex-1 py-2.5 rounded-xl text-xs font-bold text-center transition-all"
-                style={{ background: "rgba(124,58,237,0.15)", border: "1px solid rgba(168,85,247,0.3)", color: "var(--accent)", textDecoration: "none" }}>
+                style={{ background: "var(--bg-2)", border: "1px solid var(--accent)", color: "var(--accent)", textDecoration: "none" }}>
                 🔑 تسجيل الدخول
               </a>
               <a href="/register" className="flex-1 py-2.5 rounded-xl text-xs font-bold text-center transition-all"
-                style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "#4ade80", textDecoration: "none" }}>
+                style={{ background: "var(--bg-2)", border: "1px solid #4ade80", color: "#4ade80", textDecoration: "none" }}>
                 📝 حساب جديد
               </a>
             </div>
@@ -622,7 +688,7 @@ export default function HomePage() {
 
         {/* ── Join ── */}
         {mode === "join" && (
-          <div className="glass-card w-full p-4 fade-in-scale">
+          <div className="home-card w-full p-4 fade-in-scale">
             <h2 className="text-lg font-black text-center mb-4" style={{ color: "var(--text-1)" }}>🔗 انضمام لجلسة</h2>
 
             <div className="space-y-3 mb-4">
@@ -684,7 +750,7 @@ export default function HomePage() {
             </div>
 
             {error && (
-              <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-red-500/20 backdrop-blur-xl border border-red-500/30 rounded-lg text-red-400 text-sm font-medium animate-bounce">
+              <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-red-500/20  border border-red-500/30 rounded-lg text-red-400 text-sm font-medium animate-bounce">
                 {error}
               </div>
             )}
@@ -708,3 +774,4 @@ export default function HomePage() {
     </div>
   );
 }
+

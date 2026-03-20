@@ -61,7 +61,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Register form */}
-        <form onSubmit={handleRegister} className="glass-card w-full p-5 fade-in-scale space-y-3">
+        <form onSubmit={handleRegister} className="surface-card w-full p-5 fade-in-scale space-y-3">
           <div>
             <label className="text-xs font-bold block mb-1.5" style={{ color: "var(--accent)" }}>البريد الإلكتروني</label>
             <input

@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import QuestionBrowser from "./QuestionBrowser";
 import UserIcon from "./UserIcon";
 import type { Question } from "~/lib/questions";
@@ -72,7 +72,7 @@ function Section({
     return (
         <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)" }}>
             <button
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors"
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-[var(--surface)] transition-colors"
                 style={{ background: "none", border: "none", cursor: "pointer" }}
                 onClick={() => setOpen((o) => !o)}
             >

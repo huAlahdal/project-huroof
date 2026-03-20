@@ -361,14 +361,8 @@ export default function AdminPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
-            {/* Background */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
-                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
-            </div>
-
-            {/* Header */}
-            <header className="relative backdrop-blur-xl bg-white/5 border-b border-white/10">
+{/* Header */}
+            <header className="relative bg-[#1a103c] border-b border-[var(--border)]">
                 <div className="max-w-7xl mx-auto px-4 py-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -382,9 +376,9 @@ export default function AdminPage() {
                         </div>
                         <div className="flex items-center gap-2">
                             {loading && <span className="text-xs text-white/40 animate-pulse">جار التحميل...</span>}
-                            <button onClick={loadData} className="px-3 py-1.5 text-sm font-medium text-white/60 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all">🔄</button>
+                            <button onClick={loadData} className="px-3 py-1.5 text-sm font-medium text-white/60 hover:text-white bg-[var(--surface)] hover:bg-[var(--surface-hover)] rounded-lg border border-[var(--border)] transition-all">🔄</button>
                             <ThemeToggle />
-                            <button onClick={() => navigate("/")} className="px-3 py-1.5 text-sm font-medium text-white/80 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all">
+                            <button onClick={() => navigate("/")} className="px-3 py-1.5 text-sm font-medium text-white/80 hover:text-white bg-[var(--surface)] hover:bg-[var(--surface-hover)] rounded-lg border border-[var(--border)] transition-all">
                                 🏠
                             </button>
                         </div>
@@ -395,18 +389,18 @@ export default function AdminPage() {
             <div className="relative max-w-7xl mx-auto px-4 py-6">
                 {/* Messages */}
                 {error && (
-                    <div className="mb-4 px-4 py-2 bg-red-500/20 backdrop-blur-xl border border-red-500/30 rounded-lg text-red-400 text-sm font-medium">
+                    <div className="mb-4 px-4 py-2 bg-red-500/20  border border-red-500/30 rounded-lg text-red-400 text-sm font-medium">
                         {error}
                     </div>
                 )}
                 {success && (
-                    <div className="mb-4 px-4 py-2 bg-green-500/20 backdrop-blur-xl border border-green-500/30 rounded-lg text-green-400 text-sm font-medium">
+                    <div className="mb-4 px-4 py-2 bg-green-500/20  border border-green-500/30 rounded-lg text-green-400 text-sm font-medium">
                         {success}
                     </div>
                 )}
 
                 {/* Tabs */}
-                <div className="mb-4 flex flex-wrap gap-2 p-1 bg-white/5 rounded-xl border border-white/10 w-fit">
+                <div className="mb-4 flex flex-wrap gap-2 p-1 bg-[var(--surface)] rounded-xl border border-[var(--border)] w-fit">
                     {([
                         { key: "stats", label: "نظرة عامة", icon: "📊" },
                         { key: "questions", label: "الأسئلة", icon: "❓" },
@@ -419,7 +413,7 @@ export default function AdminPage() {
                             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                                 view === tab.key
                                     ? "bg-violet-600 text-white shadow-lg"
-                                    : "text-white/60 hover:text-white hover:bg-white/5"
+                                    : "text-white/60 hover:text-white hover:bg-[var(--surface)]"
                             }`}
                         >
                             <span className="ml-1">{tab.icon}</span>
@@ -438,7 +432,7 @@ export default function AdminPage() {
                                 { label: "الجلسات النشطة", value: stats.activeSessions, icon: "🎮", bg: "bg-green-500/20" },
                                 { label: "اللاعبون المتصلون", value: stats.totalPlayers, icon: "🎯", bg: "bg-orange-500/20" },
                             ].map((s) => (
-                                <div key={s.label} className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                                <div key={s.label} className="surface-card p-4 shadow-xl">
                                     <div className="flex items-center justify-between mb-3">
                                         <h3 className="text-sm font-semibold text-white/80">{s.label}</h3>
                                         <div className={`w-10 h-10 rounded-lg ${s.bg} flex items-center justify-center text-xl`}>
@@ -456,7 +450,7 @@ export default function AdminPage() {
                 {view === "questions" && (
                     <div className="space-y-4">
                         {/* Search & Filters */}
-                        <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                        <div className="surface-card p-4 shadow-xl">
                             <div className="flex flex-wrap gap-3 items-center justify-between">
                                 <div className="flex flex-wrap gap-3 flex-1">
                                     <input
@@ -464,7 +458,7 @@ export default function AdminPage() {
                                         value={qSearch}
                                         onChange={(e) => setQSearch(e.target.value)}
                                         placeholder="🔍 بحث..."
-                                        className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 text-sm focus:border-white/20 focus:outline-none flex-1 min-w-[160px]"
+                                        className="px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white placeholder-white/40 text-sm focus:border-[var(--border-strong)] focus:outline-none flex-1 min-w-[160px]"
                                     />
                                     <Dropdown
                                         value={qFilter.letter}
@@ -513,26 +507,26 @@ export default function AdminPage() {
 
                         {/* Question Form */}
                         {showQForm && (
-                            <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                            <div className="surface-card p-4 shadow-xl">
                                 <h3 className="text-base font-semibold text-white mb-3">
                                     {editQ ? "تعديل السؤال" : "سؤال جديد"}
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                                     <div>
                                         <label className="block text-xs text-white/40 uppercase tracking-wider mb-1">الحرف</label>
-                                        <input type="text" value={formQ.letter || ""} onChange={(e) => setFormQ(f => ({ ...f, letter: e.target.value.slice(0, 1) }))} className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 text-sm focus:border-white/20 focus:outline-none" placeholder="أ" maxLength={1} />
+                                        <input type="text" value={formQ.letter || ""} onChange={(e) => setFormQ(f => ({ ...f, letter: e.target.value.slice(0, 1) }))} className="w-full px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white placeholder-white/40 text-sm focus:border-[var(--border-strong)] focus:outline-none" placeholder="أ" maxLength={1} />
                                     </div>
                                     <div>
                                         <label className="block text-xs text-white/40 uppercase tracking-wider mb-1">الفئة</label>
-                                        <input type="text" value={formQ.category || ""} onChange={(e) => setFormQ(f => ({ ...f, category: e.target.value }))} className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 text-sm focus:border-white/20 focus:outline-none" placeholder="عام" />
+                                        <input type="text" value={formQ.category || ""} onChange={(e) => setFormQ(f => ({ ...f, category: e.target.value }))} className="w-full px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white placeholder-white/40 text-sm focus:border-[var(--border-strong)] focus:outline-none" placeholder="عام" />
                                     </div>
                                     <div>
                                         <label className="block text-xs text-white/40 uppercase tracking-wider mb-1">نص السؤال</label>
-                                        <input type="text" value={formQ.question || ""} onChange={(e) => setFormQ(f => ({ ...f, question: e.target.value }))} className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 text-sm focus:border-white/20 focus:outline-none" placeholder="نص السؤال" />
+                                        <input type="text" value={formQ.question || ""} onChange={(e) => setFormQ(f => ({ ...f, question: e.target.value }))} className="w-full px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white placeholder-white/40 text-sm focus:border-[var(--border-strong)] focus:outline-none" placeholder="نص السؤال" />
                                     </div>
                                     <div>
                                         <label className="block text-xs text-white/40 uppercase tracking-wider mb-1">نص الإجابة</label>
-                                        <input type="text" value={formQ.answer || ""} onChange={(e) => setFormQ(f => ({ ...f, answer: e.target.value }))} className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 text-sm focus:border-white/20 focus:outline-none" placeholder="نص الإجابة" />
+                                        <input type="text" value={formQ.answer || ""} onChange={(e) => setFormQ(f => ({ ...f, answer: e.target.value }))} className="w-full px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white placeholder-white/40 text-sm focus:border-[var(--border-strong)] focus:outline-none" placeholder="نص الإجابة" />
                                     </div>
                                     <div>
                                         <label className="block text-xs text-white/40 uppercase tracking-wider mb-1">الصعوبة</label>
@@ -550,7 +544,7 @@ export default function AdminPage() {
                                 </div>
                                 <div className="flex gap-2">
                                     <button onClick={saveQuestion} className="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-sm font-medium">حفظ</button>
-                                    <button onClick={() => { setShowQForm(false); setEditQ(null); setFormQ({}); }} className="px-4 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10 text-sm">إلغاء</button>
+                                    <button onClick={() => { setShowQForm(false); setEditQ(null); setFormQ({}); }} className="px-4 py-1.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-white rounded-lg transition-all border border-[var(--border)] text-sm">إلغاء</button>
                                 </div>
                             </div>
                         )}
@@ -559,10 +553,10 @@ export default function AdminPage() {
                         <div className="text-sm font-medium text-white/60 mb-1">
                             عرض {filteredQuestions.length} من {questions.length} سؤال
                         </div>
-                        <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 shadow-xl overflow-hidden">
+                        <div className="surface-card overflow-hidden">
                             <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                                 <table className="w-full">
-                                    <thead className="bg-white/5 border-b border-white/10 sticky top-0">
+                                    <thead className="bg-[var(--surface)] border-b border-[var(--border)] sticky top-0">
                                         <tr>
                                             <th className="px-3 py-2 text-right text-xs font-medium text-white/60 uppercase tracking-wider">حرف</th>
                                             <th className="px-3 py-2 text-right text-xs font-medium text-white/60 uppercase tracking-wider">السؤال</th>
@@ -574,7 +568,7 @@ export default function AdminPage() {
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
                                         {filteredQuestions.map(q => (
-                                            <tr key={q.id} className="hover:bg-white/5 transition-colors">
+                                            <tr key={q.id} className="hover:bg-[var(--surface)] transition-colors">
                                                 <td className="px-3 py-2">
                                                     <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-violet-500/20 text-violet-400 font-bold text-xs">{q.letter}</span>
                                                 </td>
@@ -615,7 +609,7 @@ export default function AdminPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         {/* Sessions List */}
                         <div className="lg:col-span-1">
-                            <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                            <div className="surface-card p-4 shadow-xl">
                                 <h2 className="text-base font-semibold text-white mb-3">الجلسات النشطة ({sessions.length})</h2>
                                 <div className="space-y-2 max-h-[420px] overflow-y-auto">
                                     {sessions.length === 0 && <p className="text-center text-white/40 text-sm py-4">لا توجد جلسات نشطة</p>}
@@ -625,7 +619,7 @@ export default function AdminPage() {
                                             className={`w-full p-3 text-right transition-all rounded-lg ${
                                                 selectedSession === s.id
                                                     ? "bg-violet-500/20 border-2 border-violet-500/30"
-                                                    : "hover:bg-white/5 border-2 border-transparent"
+                                                    : "hover:bg-[var(--surface)] border-2 border-transparent"
                                             }`}
                                             onClick={() => setSelectedSession(s.id)}
                                         >
@@ -642,7 +636,7 @@ export default function AdminPage() {
                         {/* Session Details */}
                         <div className="lg:col-span-2">
                             {selectedSessionData ? (
-                                <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl space-y-4">
+                                <div className="surface-card p-4 shadow-xl space-y-4">
                                     <div className="flex flex-wrap justify-between items-start gap-2">
                                         <h3 className="font-bold text-base text-white">جلسة: <span className="font-mono">{selectedSessionData.id}</span></h3>
                                         <div className="flex gap-2">
@@ -668,7 +662,7 @@ export default function AdminPage() {
                                         <h4 className="font-bold mb-2 text-white text-sm">اللاعبون ({selectedSessionData.playerCount})</h4>
                                         <div className="space-y-2">
                                             {selectedSessionData.players.map(p => (
-                                                <div key={p.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-colors border border-white/10">
+                                                <div key={p.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-[var(--surface)] transition-colors border border-[var(--border)]">
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-bold text-white text-sm">{p.name}</span>
                                                         {p.id === selectedSessionData.hostPlayerId && (
@@ -690,7 +684,7 @@ export default function AdminPage() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-8 shadow-xl text-center">
+                                <div className="surface-card p-8 shadow-xl text-center">
                                     <p className="text-white/60">اختر جلسة لعرض التفاصيل</p>
                                 </div>
                             )}
@@ -702,32 +696,32 @@ export default function AdminPage() {
                 {view === "users" && (
                     <div className="space-y-4">
                         {/* Search */}
-                        <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                        <div className="surface-card p-4 shadow-xl">
                             <input
                                 type="text"
                                 value={userSearch}
                                 onChange={(e) => setUserSearch(e.target.value)}
                                 placeholder="🔍 بحث بالاسم أو البريد أو المعرف..."
-                                className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 text-sm focus:border-white/20 focus:outline-none"
+                                className="w-full px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white placeholder-white/40 text-sm focus:border-[var(--border-strong)] focus:outline-none"
                             />
                         </div>
 
                         {/* User Edit Form */}
                         {showUserForm && editingUser && (
-                            <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                            <div className="surface-card p-4 shadow-xl">
                                 <h3 className="text-base font-semibold text-white mb-3">تعديل المستخدم: {editingUser.username}</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
                                     <div>
                                         <label className="block text-xs text-white/40 uppercase tracking-wider mb-1">اسم المستخدم</label>
-                                        <input type="text" value={userForm.username || ""} onChange={(e) => setUserForm(f => ({ ...f, username: e.target.value }))} className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-white/20 focus:outline-none" />
+                                        <input type="text" value={userForm.username || ""} onChange={(e) => setUserForm(f => ({ ...f, username: e.target.value }))} className="w-full px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white text-sm focus:border-[var(--border-strong)] focus:outline-none" />
                                     </div>
                                     <div>
                                         <label className="block text-xs text-white/40 uppercase tracking-wider mb-1">الاسم داخل اللعبة</label>
-                                        <input type="text" value={userForm.inGameName || ""} onChange={(e) => setUserForm(f => ({ ...f, inGameName: e.target.value }))} className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-white/20 focus:outline-none" />
+                                        <input type="text" value={userForm.inGameName || ""} onChange={(e) => setUserForm(f => ({ ...f, inGameName: e.target.value }))} className="w-full px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white text-sm focus:border-[var(--border-strong)] focus:outline-none" />
                                     </div>
                                     <div>
                                         <label className="block text-xs text-white/40 uppercase tracking-wider mb-1">البريد الإلكتروني</label>
-                                        <input type="text" value={userForm.email || ""} onChange={(e) => setUserForm(f => ({ ...f, email: e.target.value }))} className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-white/20 focus:outline-none" dir="ltr" />
+                                        <input type="text" value={userForm.email || ""} onChange={(e) => setUserForm(f => ({ ...f, email: e.target.value }))} className="w-full px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white text-sm focus:border-[var(--border-strong)] focus:outline-none" dir="ltr" />
                                     </div>
                                     <div>
                                         <label className="block text-xs text-white/40 uppercase tracking-wider mb-1">الدور</label>
@@ -747,7 +741,7 @@ export default function AdminPage() {
                                                 type="checkbox"
                                                 checked={userForm.isActive ?? true}
                                                 onChange={(e) => setUserForm(f => ({ ...f, isActive: e.target.checked }))}
-                                                className="w-4 h-4 rounded bg-white/10 border-white/20 text-violet-600 focus:ring-violet-500"
+                                                className="w-4 h-4 rounded bg-[var(--surface-hover)] border-[var(--border-strong)] text-violet-600 focus:ring-violet-500"
                                             />
                                             <span className="text-sm text-white">نشط</span>
                                         </label>
@@ -755,22 +749,22 @@ export default function AdminPage() {
                                 </div>
                                 <div className="flex gap-2">
                                     <button onClick={saveUser} className="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-sm font-medium">حفظ</button>
-                                    <button onClick={() => { setShowUserForm(false); setEditingUser(null); setUserForm({}); }} className="px-4 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10 text-sm">إلغاء</button>
+                                    <button onClick={() => { setShowUserForm(false); setEditingUser(null); setUserForm({}); }} className="px-4 py-1.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-white rounded-lg transition-all border border-[var(--border)] text-sm">إلغاء</button>
                                 </div>
                             </div>
                         )}
 
                         {/* Password Reset Modal */}
                         {resetPwUser && (
-                            <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-amber-500/30 p-4 shadow-xl">
+                            <div className="bg-[#1a103c] rounded-xl border border-amber-500/30 p-4 shadow-xl">
                                 <h3 className="text-base font-semibold text-amber-400 mb-3">إعادة تعيين كلمة المرور: {resetPwUser.username}</h3>
                                 <div className="flex gap-3 items-end">
                                     <div className="flex-1">
                                         <label className="block text-xs text-white/40 uppercase tracking-wider mb-1">كلمة المرور الجديدة</label>
-                                        <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-white/20 focus:outline-none" dir="ltr" placeholder="6 أحرف على الأقل" />
+                                        <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white text-sm focus:border-[var(--border-strong)] focus:outline-none" dir="ltr" placeholder="6 أحرف على الأقل" />
                                     </div>
                                     <button onClick={resetPassword} disabled={newPassword.length < 6} className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-all">تغيير</button>
-                                    <button onClick={() => { setResetPwUser(null); setNewPassword(""); }} className="px-4 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 text-sm transition-all">إلغاء</button>
+                                    <button onClick={() => { setResetPwUser(null); setNewPassword(""); }} className="px-4 py-1.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-white rounded-lg border border-[var(--border)] text-sm transition-all">إلغاء</button>
                                 </div>
                             </div>
                         )}
@@ -779,10 +773,10 @@ export default function AdminPage() {
                         <div className="text-sm font-medium text-white/60 mb-1">
                             {filteredUsers.length} مستخدم
                         </div>
-                        <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 shadow-xl overflow-hidden">
+                        <div className="surface-card overflow-hidden">
                             <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                                 <table className="w-full">
-                                    <thead className="bg-white/5 border-b border-white/10 sticky top-0">
+                                    <thead className="bg-[var(--surface)] border-b border-[var(--border)] sticky top-0">
                                         <tr>
                                             <th className="px-3 py-2 text-right text-xs font-medium text-white/60 uppercase tracking-wider">الاسم</th>
                                             <th className="px-3 py-2 text-right text-xs font-medium text-white/60 uppercase tracking-wider">المستخدم</th>
@@ -795,7 +789,7 @@ export default function AdminPage() {
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
                                         {filteredUsers.map(u => (
-                                            <tr key={u.id} className="hover:bg-white/5 transition-colors">
+                                            <tr key={u.id} className="hover:bg-[var(--surface)] transition-colors">
                                                 <td className="px-3 py-2 text-white text-sm font-medium">{u.inGameName}</td>
                                                 <td className="px-3 py-2 text-white/80 text-sm font-mono">{u.username}</td>
                                                 <td className="px-3 py-2 text-white/60 text-sm" dir="ltr">{u.email}</td>

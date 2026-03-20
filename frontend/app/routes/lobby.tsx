@@ -373,7 +373,7 @@ export default function LobbyPage() {
     if (needsJoin) {
         return (
             <div className="game-bg min-h-screen flex items-center justify-center px-4">
-                <div className="glass-card w-full max-w-md p-8 text-center fade-in-scale">
+                <div className="surface-card w-full max-w-md p-8 text-center fade-in-scale">
                     <div className="text-5xl mb-4">🎮</div>
                     <h2 className="text-2xl font-black mb-1" style={{ color: "var(--text-1)" }}>انضمام للجلسة</h2>
                     <p className="text-sm mb-6" style={{ color: "var(--text-3)", direction: "ltr" }}>
@@ -381,7 +381,7 @@ export default function LobbyPage() {
                         <span className="font-black" style={{ color: "var(--accent)" }}>{sessionId}</span>
                         <button 
                             onClick={handleCopySessionId}
-                            className="mr-2 p-1 rounded hover:bg-white/10 transition-all duration-200"
+                            className="mr-2 p-1 rounded hover:bg-[var(--surface-hover)] transition-all duration-200"
                             title={copied ? "تم النسخ!" : "نسخ الرمز"}
                         >
                             {copied ? (
@@ -422,14 +422,8 @@ export default function LobbyPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
-            {/* Animated background elements */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-40 -right-40 w-60 h-60 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
-                <div className="absolute -bottom-40 -left-40 w-60 h-60 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }}></div>
-            </div>
-
-            {/* Header */}
-            <header className="relative backdrop-blur-xl bg-white/5 border-b border-white/10">
+{/* Header */}
+            <header className="relative bg-[#1a103c] border-b border-[var(--border)]">
                 <div className="max-w-6xl mx-auto px-4 py-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -463,7 +457,7 @@ export default function LobbyPage() {
                     <div className="lg:col-span-1 space-y-4">
                         
                         {/* Session Status Card */}
-                        <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                        <div className="surface-card p-4 shadow-xl">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="text-lg font-semibold text-white">حالة الجلسة</h2>
                                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
@@ -473,13 +467,13 @@ export default function LobbyPage() {
                                 <div className="flex items-center justify-between py-2 border-b border-white/5">
                                     <span className="text-sm text-white/60">رمز الجلسة</span>
                                     <div className="flex items-center gap-2">
-                                        <code className="px-2 py-0.5 rounded-md bg-white/10 text-white font-mono text-sm font-bold tracking-widest">
+                                        <code className="px-2 py-0.5 rounded-md bg-[var(--surface-hover)] text-white font-mono text-sm font-bold tracking-widest">
                                             {sessionId}
                                         </code>
                                         <button
                                             onClick={handleCopySessionId}
                                             title={copied ? "تم النسخ!" : "نسخ الرمز"}
-                                            className="p-1 rounded-md bg-white/5 hover:bg-white/15 transition-all duration-200"
+                                            className="p-1 rounded-md bg-[var(--surface)] hover:bg-white/15 transition-all duration-200"
                                         >
                                             {copied ? (
                                                 <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -512,7 +506,7 @@ export default function LobbyPage() {
                         {canControlGame && (
                             <>
                                 {/* Session Info */}
-                                <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                                <div className="surface-card p-4 shadow-xl">
                                     <h2 className="text-base font-semibold text-white mb-3">معلومات الجلسة</h2>
                                     <div className="space-y-3">
                                         <div>
@@ -523,7 +517,7 @@ export default function LobbyPage() {
                                                     value={myNameDraft}
                                                     onChange={(e) => setMyNameDraft(e.target.value)}
                                                     onBlur={handleUpdateMyName}
-                                                    className="flex-1 px-3 py-1.5 bg-white/5 rounded-lg text-white placeholder-white/40 text-sm border border-white/10 focus:border-white/20 focus:outline-none"
+                                                    className="flex-1 px-3 py-1.5 bg-[var(--surface)] rounded-lg text-white placeholder-white/40 text-sm border border-[var(--border)] focus:border-[var(--border-strong)] focus:outline-none"
                                                     placeholder="أدخل اسمك"
                                                 />
                                                 <button 
@@ -537,12 +531,12 @@ export default function LobbyPage() {
                                         <div>
                                             <label className="text-xs text-white/40 uppercase tracking-wider">رقم الجلسة</label>
                                             <div className="mt-1 flex items-center gap-2">
-                                                <code className="flex-1 px-3 py-1.5 bg-white/5 rounded-lg text-white font-mono text-sm border border-white/10">
+                                                <code className="flex-1 px-3 py-1.5 bg-[var(--surface)] rounded-lg text-white font-mono text-sm border border-[var(--border)]">
                                                     {sessionId}
                                                 </code>
                                                 <button 
                                                     onClick={handleCopySessionId}
-                                                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-all duration-200"
+                                                    className="p-1.5 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-hover)] transition-all duration-200"
                                                     title={copied ? "تم النسخ!" : "نسخ الرمز"}
                                                 >
                                                     {copied ? (
@@ -560,7 +554,7 @@ export default function LobbyPage() {
                                         <div>
                                             <label className="text-xs text-white/40 uppercase tracking-wider">كلمة المرور</label>
                                             <div className="mt-1 flex items-center gap-2">
-                                                <code className="flex-1 px-3 py-1.5 bg-white/5 rounded-lg text-white font-mono text-sm border border-white/10">
+                                                <code className="flex-1 px-3 py-1.5 bg-[var(--surface)] rounded-lg text-white font-mono text-sm border border-[var(--border)]">
                                                     ••••••••
                                                 </code>
                                             </div>
@@ -578,7 +572,7 @@ export default function LobbyPage() {
                                                         value={newPassword}
                                                         onChange={(e) => setNewPassword(e.target.value)}
                                                         placeholder="كلمة المرور الجديدة"
-                                                        className="flex-1 px-3 py-1.5 bg-white/5 rounded-lg text-white placeholder-white/40 text-sm border border-white/10 focus:border-white/20 focus:outline-none"
+                                                        className="flex-1 px-3 py-1.5 bg-[var(--surface)] rounded-lg text-white placeholder-white/40 text-sm border border-[var(--border)] focus:border-[var(--border-strong)] focus:outline-none"
                                                     />
                                                     <button 
                                                         onClick={handleChangePassword}
@@ -589,7 +583,7 @@ export default function LobbyPage() {
                                                     </button>
                                                     <button 
                                                         onClick={() => { setChangingPassword(false); setNewPassword(""); }}
-                                                        className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 border border-white/10 text-xs"
+                                                        className="px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-white rounded-lg transition-all duration-200 border border-[var(--border)] text-xs"
                                                     >
                                                         إلغاء
                                                     </button>
@@ -600,7 +594,7 @@ export default function LobbyPage() {
                                 </div>
 
                                 {/* Settings */}
-                                <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                                <div className="surface-card p-4 shadow-xl">
                                     <h2 className="text-base font-semibold text-white mb-3">الإعدادات</h2>
                                     <div className="space-y-3">
                                         <div>
@@ -666,7 +660,7 @@ export default function LobbyPage() {
 
                         {/* Player Profile - Only show for non-host players */}
                         {!isHost && (
-                        <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                        <div className="surface-card p-4 shadow-xl">
                             <h2 className="text-base font-semibold text-white mb-3">ملفك</h2>
                             <div className="space-y-3">
                                 <div>
@@ -677,7 +671,7 @@ export default function LobbyPage() {
                                             value={myNameDraft}
                                             onChange={(e) => setMyNameDraft(e.target.value)}
                                             onBlur={handleUpdateMyName}
-                                            className="flex-1 px-3 py-1.5 bg-white/5 rounded-lg text-white placeholder-white/40 text-sm border border-white/10 focus:border-white/20 focus:outline-none"
+                                            className="flex-1 px-3 py-1.5 bg-[var(--surface)] rounded-lg text-white placeholder-white/40 text-sm border border-[var(--border)] focus:border-[var(--border-strong)] focus:outline-none"
                                             placeholder="أدخل اسمك"
                                         />
                                         <button 
@@ -713,8 +707,8 @@ export default function LobbyPage() {
                                                             isSelected
                                                                 ? "bg-violet-600 text-white"
                                                                 : isDisabled
-                                                                ? "opacity-50 cursor-not-allowed bg-white/5 text-white/40"
-                                                                : "bg-white/5 text-white/80 hover:bg-white/10"
+                                                                ? "opacity-50 cursor-not-allowed bg-[var(--surface)] text-white/40"
+                                                                : "bg-[var(--surface)] text-white/80 hover:bg-[var(--surface-hover)]"
                                                         }`}
                                                     >
                                                         <span className="ml-1">{ROLE_EMOJI[role]}</span>
@@ -732,7 +726,7 @@ export default function LobbyPage() {
 
                     {/* Center Column - Players */}
                     <div className="lg:col-span-2">
-                        <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-4 shadow-xl">
+                        <div className="surface-card p-4 shadow-xl">
                             <h2 className="text-lg font-semibold text-white mb-6">اللاعبون</h2>
                             
                             {/* Teams Grid */}
@@ -775,8 +769,8 @@ export default function LobbyPage() {
                                             {team.players.map((p) => (
                                                 <div
                                                     key={p.id}
-                                                    className={`group relative rounded-lg bg-white/5 border border-white/10 p-3 transition-all duration-200 ${
-                                                        isHost && p.id !== myPlayerId ? 'cursor-pointer hover:bg-white/10' : ''
+                                                    className={`group relative rounded-lg bg-[var(--surface)] border border-[var(--border)] p-3 transition-all duration-200 ${
+                                                        isHost && p.id !== myPlayerId ? 'cursor-pointer hover:bg-[var(--surface-hover)]' : ''
                                                     }`}
                                                     onClick={() => {
                                                         if (isHost && p.id !== myPlayerId) {
@@ -896,7 +890,7 @@ export default function LobbyPage() {
 
                         {/* Role Selection */}
                         {myPlayer && (
-                            <div className="mt-4 backdrop-blur-xl bg-white/5 rounded-2xl border border-white/10 p-6 shadow-xl">
+                            <div className="mt-4 surface-card p-6 shadow-xl">
                                 <h2 className="text-lg font-semibold text-white mb-4">اختر دورك</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     {[
@@ -916,7 +910,7 @@ export default function LobbyPage() {
                                                 } ${
                                                     active 
                                                         ? `bg-gradient-to-r ${role.color} text-white shadow-lg` 
-                                                        : 'bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10'
+                                                        : 'bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-white/80 hover:text-white border border-[var(--border)]'
                                                 }`}
                                                 onClick={() => !role.disabled && handleSetRole(role.key)}
                                                 disabled={role.disabled}
@@ -924,7 +918,7 @@ export default function LobbyPage() {
                                                 <div className="text-2xl mb-1">{role.icon}</div>
                                                 <div className="text-sm">{role.label}</div>
                                                 {active && (
-                                                    <div className="absolute inset-0 rounded-xl bg-white/20 animate-pulse"></div>
+                                                    <div className="absolute inset-0 rounded-xl bg-[var(--surface-active)] animate-pulse"></div>
                                                 )}
                                             </button>
                                         );
@@ -948,7 +942,7 @@ export default function LobbyPage() {
                         {/* Show warning if teams are not balanced */}
                         {canControlGame && lobby && players.length >= 2 && (orangePlayers.length === 0 || greenPlayers.length === 0) && (
                             <div className="mt-6 text-center">
-                                <div className="px-6 py-3 bg-yellow-500/20 backdrop-blur-xl border border-yellow-500/30 rounded-lg">
+                                <div className="px-6 py-3 bg-yellow-500/20  border border-yellow-500/30 rounded-lg">
                                     <p className="text-yellow-400 text-sm font-medium">
                                         ⚠️ يجب أن يكون هناك لاعب واحد على الأقل في كل فريق لبدء اللعبة
                                     </p>
@@ -961,7 +955,7 @@ export default function LobbyPage() {
 
             {/* Error Display - More Compact */}
             {error && (
-                <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 px-6 py-3 bg-red-500/20 backdrop-blur-xl border border-red-500/30 rounded-lg text-red-400 text-sm font-medium animate-bounce flex items-center gap-3">
+                <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 px-6 py-3 bg-red-500/20  border border-red-500/30 rounded-lg text-red-400 text-sm font-medium animate-bounce flex items-center gap-3">
                     <span>{error}</span>
                     <button 
                         onClick={() => window.location.reload()}

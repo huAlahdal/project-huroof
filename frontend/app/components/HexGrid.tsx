@@ -46,25 +46,7 @@ const HexGrid = memo(function HexGrid({
                 style={{ maxWidth: 900, display: "block" }}
                 xmlns="http://www.w3.org/2000/svg"
             >
-                <defs>
-                    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
-                        <feGaussianBlur stdDeviation="3" result="blur" />
-                        <feMerge>
-                            <feMergeNode in="blur" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
-                    <filter id="selected-glow" x="-40%" y="-40%" width="180%" height="180%">
-                        <feGaussianBlur stdDeviation="5" result="blur" />
-                        <feMerge>
-                            <feMergeNode in="blur" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
-                    <filter id="shadow">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.4" />
-                    </filter>
-                </defs>
+                
 
                 {/* Border hexagons */}
                 {borderHexes.map((bh, i) => {
@@ -117,14 +99,14 @@ const HexGrid = memo(function HexGrid({
                                 stroke={colors.stroke}
                                 strokeWidth={cell.isSelected ? 3 : 1.5}
                                 opacity={0.6}
-                                filter={cell.isSelected ? "url(#selected-glow)" : undefined}
+                                
                             />
                             <polygon
                                 points={points}
                                 fill={colors.fill}
                                 stroke={colors.stroke}
                                 strokeWidth={cell.isSelected ? 2.5 : 1.5}
-                                filter={isOwned || cell.isSelected ? "url(#shadow)" : undefined}
+                                
                             />
                             <text
                                 x={cx}
@@ -157,3 +139,4 @@ const HexGrid = memo(function HexGrid({
 });
 
 export default HexGrid;
+

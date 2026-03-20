@@ -14,6 +14,7 @@ interface DropdownProps {
     placeholder?: string;
     disabled?: boolean;
     className?: string;
+    slim?: boolean;
 }
 
 export default function Dropdown({ 
@@ -22,7 +23,8 @@ export default function Dropdown({
     options, 
     placeholder = "Select option", 
     disabled = false,
-    className = ""
+    className = "",
+    slim = false
 }: DropdownProps) {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -47,26 +49,26 @@ export default function Dropdown({
                 onClick={() => !disabled && setIsOpen(!isOpen)}
                 disabled={disabled}
                 className={`
-                    w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl
+                    w-full ${slim ? 'px-2 py-1' : 'px-4 py-2.5'} bg-(--surface) border border-(--border) rounded-xl
                     text-left flex items-center justify-between
                     transition-all duration-200
                     ${disabled 
                         ? 'opacity-50 cursor-not-allowed' 
-                        : 'cursor-pointer hover:bg-white/10 hover:border-white/20'
+                        : 'cursor-pointer hover:bg-(--surface-hover) hover:border-(--border-strong)'
                     }
-                    ${isOpen ? 'bg-white/10 border-white/20' : ''}
+                    ${isOpen ? 'bg-(--surface-hover) border-(--border-strong)' : ''}
                 `}
             >
                 <div className="flex items-center gap-3">
                     {selectedOption?.icon && (
                         <span className="text-white/60">{selectedOption.icon}</span>
                     )}
-                    <span className={`text-sm ${selectedOption ? 'text-white' : 'text-white/40'}`}>
+                    <span className={`${slim ? 'text-[11px] font-bold' : 'text-sm'} ${selectedOption ? 'text-white' : 'text-white/40'}`}>
                         {selectedOption?.label || placeholder}
                     </span>
                 </div>
                 <svg 
-                    className={`w-4 h-4 text-white/40 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                    className={`w-3.5 h-3.5 text-white/40 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
@@ -76,7 +78,7 @@ export default function Dropdown({
             </button>
 
             {isOpen && (
-                <div className="absolute z-50 w-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+                <div className="absolute z-50 w-full mt-2 bg-slate-900/95  border border-(--border) rounded-xl shadow-2xl overflow-hidden">
                     <div className="py-2 max-h-60 overflow-y-auto">
                         {options.map((option) => (
                             <button
@@ -88,11 +90,11 @@ export default function Dropdown({
                                 }}
                                 disabled={option.disabled}
                                 className={`
-                                    w-full px-4 py-2 text-right flex items-center gap-3
+                                    w-full ${slim ? 'px-2 py-1.5' : 'px-4 py-2'} text-right flex items-center gap-3
                                     transition-all duration-150
                                     ${option.disabled 
                                         ? 'opacity-50 cursor-not-allowed' 
-                                        : 'cursor-pointer hover:bg-white/5'
+                                        : 'cursor-pointer hover:bg-(--surface)'
                                     }
                                     ${value === option.value ? 'bg-violet-500/10 text-violet-400' : 'text-white/80 hover:text-white'}
                                 `}

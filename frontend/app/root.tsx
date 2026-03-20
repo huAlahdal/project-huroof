@@ -85,7 +85,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 
   return (
     <main className="game-bg min-h-screen flex items-center justify-center p-4">
-      <div className="glass-card p-8 text-center max-w-md">
+      <div className="surface-card p-8 text-center max-w-md">
         <h1 className="text-4xl font-black mb-4" style={{ color: "var(--text-1)" }}>{message}</h1>
         <p style={{ color: "var(--text-2)" }}>{details}</p>
         {stack && (

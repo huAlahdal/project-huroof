@@ -151,38 +151,42 @@ export default function QuestionBrowser({ letter, onSelectQuestion, onClose, use
                                 onClick={() => onSelectQuestion(q)}
                                 className="w-full text-right rounded-xl px-4 py-3 transition-all group relative"
                                 style={{
-                                    background: isUsed ? "rgba(234,179,8,0.06)" : "var(--surface)",
-                                    border: isUsed ? "1px solid rgba(234,179,8,0.25)" : "1px solid var(--border)",
+                                    background: isUsed ? "rgba(234,179,8,0.04)" : "var(--surface)",
+                                    border: isUsed ? "1px solid rgba(234,179,8,0.2)" : "1px solid var(--border)",
                                     cursor: "pointer",
                                     display: "block",
                                     textAlign: "right",
-                                    opacity: isUsed ? 0.7 : 1,
+                                    opacity: isUsed ? 0.75 : 1,
                                 }}
-                                onMouseEnter={(e) => (e.currentTarget.style.background = isUsed ? "rgba(234,179,8,0.12)" : "var(--surface-hover)")}
-                                onMouseLeave={(e) => (e.currentTarget.style.background = isUsed ? "rgba(234,179,8,0.06)" : "var(--surface)")}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = isUsed ? "rgba(234,179,8,0.08)" : "var(--surface-hover)")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = isUsed ? "rgba(234,179,8,0.04)" : "var(--surface)")}
                             >
-                                {isUsed && (
-                                    <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-black" style={{ background: "rgba(234,179,8,0.2)", color: "#facc15", border: "1px solid rgba(234,179,8,0.3)" }}>
-                                        تم استخدامه ✓
-                                    </span>
-                                )}
-                                <div className="flex items-start gap-3">
+                                <div className="flex items-start gap-4">
                                     <div className="flex-1 text-right">
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                            {isUsed && (
+                                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black tracking-wide" style={{ background: "rgba(234,179,8,0.15)", color: "#facc15", border: "1px solid rgba(234,179,8,0.3)" }}>
+                                                    مُستخدم ✓
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-sm font-bold leading-relaxed" style={{ color: isUsed ? "var(--text-3)" : "var(--text-1)" }}>
                                             {q.question}
                                         </p>
-                                        <p className="text-xs font-semibold mt-1" style={{ color: isUsed ? "var(--text-4)" : "var(--accent)" }}>
+                                        <p className="text-xs font-semibold mt-1.5" style={{ color: isUsed ? "var(--text-4)" : "var(--accent)" }}>
                                             ✅ {q.answer}
                                         </p>
                                     </div>
-                                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                    <div className="flex flex-col items-center gap-2 shrink-0 min-w-[75px]">
                                         <span
-                                            className="px-2 py-0.5 rounded-full text-[11px] font-bold"
-                                            style={{ background: diff.bg, color: diff.color }}
+                                            className="px-3 py-1 rounded-lg text-[11px] font-bold w-full text-center"
+                                            style={{ background: diff.bg, color: diff.color, border: `1px solid ${diff.color}30` }}
                                         >
                                             {diff.label}
                                         </span>
-                                        <span className="text-[10px] font-semibold" style={{ color: "var(--text-3)" }}>{q.category}</span>
+                                        <span className="text-[10px] font-bold w-full text-center py-1 outline-1 outline-(--border) rounded-md" style={{ color: "var(--text-3)", background: "var(--bg-1)" }}>
+                                            {q.category}
+                                        </span>
                                     </div>
                                 </div>
                             </button>
