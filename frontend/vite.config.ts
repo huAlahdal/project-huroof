@@ -9,16 +9,18 @@ export default defineConfig(() => {
     server: {
       host: '0.0.0.0', // Allow external connections
       port: 5173,
-      // Dev-only proxy: forwards /api and /gamehub to the backend running on port 5062
+      // Dev-only proxy: forwards /api and /gamehub to the backend running on port 7047
       proxy: {
         "/api": {
-          target: "http://localhost:5062",
+          target: "https://localhost:7047",
           changeOrigin: true,
+          secure: false,
         },
         "/gamehub": {
-          target: "http://localhost:5062",
+          target: "https://localhost:7047",
           ws: true,
           changeOrigin: true,
+          secure: false,
         },
       },
     },

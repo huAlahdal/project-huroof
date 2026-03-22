@@ -7,7 +7,7 @@ const getHostname = () => {
   return window.location.hostname;
 };
 
-export const API_BASE = `http://${getHostname()}:5062`;
+export const API_BASE = `https://${getHostname()}:7047`;
 
 // For SignalR WebSocket connection
-export const SIGNALR_URL = `http://${getHostname()}:5062/gamehub`;
+export const SIGNALR_URL = `https://${getHostname()}:7047/gamehub`;
