@@ -495,8 +495,8 @@ export default function GameMasterPanel({
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className="flex-1 py-4 text-sm font-bold flex items-center justify-center gap-1.5 relative transition-all"
-                            style={{ minHeight: "56px" }}
                             style={{
+                                minHeight: "56px",
                                 background: activeTab === tab.id ? "rgba(168,85,247,0.18)" : "transparent",
                                 color: activeTab === tab.id ? "#d8b4fe" : "var(--text-3)",
                                 border: "none",
