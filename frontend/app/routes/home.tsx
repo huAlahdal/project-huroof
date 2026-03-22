@@ -257,7 +257,7 @@ export default function HomePage() {
   return (
     <div className="game-bg min-h-screen relative overflow-hidden flex flex-col items-center justify-center px-4">
       {/* Game Honeycomb Background Pattern */}
-      <div 
+      <div
         className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.22] transform scale-[1.2] sm:scale-[1.3] md:scale-110 lg:scale-[1.2]"
         style={{
           maskImage: 'radial-gradient(ellipse at center, rgba(0,0,0,1) 10%, rgba(0,0,0,0) 70%)',
@@ -278,34 +278,34 @@ export default function HomePage() {
 
       {/* Scattered Hexes with Letters */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-          {SCATTERED_HEXES.map((hex, i) => (
-            <div
-              key={i}
-              className="absolute flex items-center justify-center font-black animate-pulse"
-              style={{
-                top: `${hex.top}%`,
-                left: `${hex.left}%`,
-                width: hex.size,
-                height: hex.size * 1.15,
-                animationDuration: `${hex.duration}s`,
-                animationDelay: `${hex.delay}s`,
-                transform: `rotate(${hex.rotate}deg)`,
-                opacity: 0.35
-              }}
-            >
-              <svg viewBox="0 0 100 115" className="absolute inset-0 w-full h-full">
-                <polygon
-                  points="50,2.5 97.5,28.75 97.5,86.25 50,112.5 2.5,86.25 2.5,28.75"
-                  fill="var(--bg-3)"
-                  stroke={hex.color}
-                  strokeWidth="3"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span className="relative z-10" style={{ color: hex.color, fontSize: hex.size * 0.45 }}>{hex.letter}</span>
-            </div>
-          ))}
-        </div>
+        {SCATTERED_HEXES.map((hex, i) => (
+          <div
+            key={i}
+            className="absolute flex items-center justify-center font-black animate-pulse"
+            style={{
+              top: `${hex.top}%`,
+              left: `${hex.left}%`,
+              width: hex.size,
+              height: hex.size * 1.15,
+              animationDuration: `${hex.duration}s`,
+              animationDelay: `${hex.delay}s`,
+              transform: `rotate(${hex.rotate}deg)`,
+              opacity: 0.35
+            }}
+          >
+            <svg viewBox="0 0 100 115" className="absolute inset-0 w-full h-full">
+              <polygon
+                points="50,2.5 97.5,28.75 97.5,86.25 50,112.5 2.5,86.25 2.5,28.75"
+                fill="var(--bg-3)"
+                stroke={hex.color}
+                strokeWidth="3"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className="relative z-10" style={{ color: hex.color, fontSize: hex.size * 0.45 }}>{hex.letter}</span>
+          </div>
+        ))}
+      </div>
 
       {/* Theme toggle — top right */}
       <div className="fixed top-3 left-3 z-20">
@@ -362,7 +362,7 @@ export default function HomePage() {
         {/* Logo */}
         <div className="text-center fade-in flex flex-col items-center w-full">
           <div className="relative group mx-auto mb-3 w-24 h-24">
-              {/* Main box */}
+            {/* Main box */}
             <div
               className="relative flex items-center justify-center w-full h-full rounded-[2.5rem] text-white shadow-2xl overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600"
               style={{
@@ -444,9 +444,18 @@ export default function HomePage() {
                 <button
                   className="home-action-btn home-action-create"
                   onClick={() => {
-                    if (!user) { setGuestAction("create"); setMode("guest-prompt"); }
-                    else setMode("create");
+                    if (isGuest) {
+                      setError("عذراً، يجب تسجيل حساب مجاني لإنشاء جلسة.");
+                      return;
+                    }
+                    if (!user) {
+                      navigate("/login");
+                    } else {
+                      setMode("create");
+                    }
                   }}
+                  style={{ opacity: isGuest ? 0.6 : 1, cursor: isGuest ? "not-allowed" : "pointer" }}
+                  title={isGuest ? "للحسابات المسجلة فقط" : ""}
                 >🎮 إنشاء جلسة</button>
 
                 {/* Join Session */}
@@ -623,7 +632,7 @@ export default function HomePage() {
             <h2 className="text-lg font-black" style={{ color: "var(--text-1)" }}>
               {guestAction === "create" ? "إنشاء جلسة كضيف" : "انضمام كضيف"}
             </h2>
-            
+
             {/* Guest limitations */}
             <div className="rounded-lg p-3 text-right" style={{ background: "rgba(234,179,8,0.08)", border: "1px solid #facc15" }}>
               <p className="text-xs font-bold mb-2" style={{ color: "#facc15" }}>⚠️ قيود وضع الضيف:</p>
@@ -710,30 +719,30 @@ export default function HomePage() {
                 )}
               </div>
               {joinNeedsPassword !== false && (
-              <div>
-                <label className="text-xs font-bold block mb-1.5" style={{ color: "var(--accent)" }}>
-                  كلمة المرور {joinNeedsPassword === null && <span className="font-normal" style={{ color: "var(--text-3)" }}>(إذا كانت الجلسة محمية)</span>}
-                </label>
-                <div className="relative">
-                  <input
-                    type={showJoinPass ? "text" : "password"}
-                    value={joinPassword}
-                    onChange={(e) => setJoinPassword(e.target.value)}
-                    placeholder="أدخل كلمة المرور"
-                    className="input-field"
-                    style={{ paddingLeft: "2.5rem" }}
-                    autoComplete="off"
-                  />
-                  <button
-                    onClick={() => setShowJoinPass((p) => !p)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-base"
-                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)" }}
-                    tabIndex={-1}
-                  >
-                    {showJoinPass ? "🙈" : "👁"}
-                  </button>
+                <div>
+                  <label className="text-xs font-bold block mb-1.5" style={{ color: "var(--accent)" }}>
+                    كلمة المرور {joinNeedsPassword === null && <span className="font-normal" style={{ color: "var(--text-3)" }}>(إذا كانت الجلسة محمية)</span>}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showJoinPass ? "text" : "password"}
+                      value={joinPassword}
+                      onChange={(e) => setJoinPassword(e.target.value)}
+                      placeholder="أدخل كلمة المرور"
+                      className="input-field"
+                      style={{ paddingLeft: "2.5rem" }}
+                      autoComplete="off"
+                    />
+                    <button
+                      onClick={() => setShowJoinPass((p) => !p)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-base"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)" }}
+                      tabIndex={-1}
+                    >
+                      {showJoinPass ? "🙈" : "👁"}
+                    </button>
+                  </div>
                 </div>
-              </div>
               )}
               <div>
                 <label className="text-xs font-bold block mb-1.5" style={{ color: "var(--accent)" }}>اسمك في اللعبة</label>

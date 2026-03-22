@@ -5,6 +5,7 @@ interface PlayerDto {
     id: string;
     name: string;
     role: string;
+    isOnline?: boolean;
 }
 
 interface PlayerListProps {
@@ -21,28 +22,29 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 const PlayerList = memo(function PlayerList({ players, showTitle = true, currentUserId }: PlayerListProps) {
-    const orangePlayers = useMemo(() => players.filter((p) => p.role === "teamorange"), [players]);
-    const greenPlayers = useMemo(() => players.filter((p) => p.role === "teamgreen"), [players]);
-    const spectators = useMemo(() => players.filter((p) => p.role === "spectator"), [players]);
-    const gameMaster = useMemo(() => players.find((p) => p.role === "gamemaster"), [players]);
+    const onlinePlayers = useMemo(() => players.filter(p => p.isOnline !== false), [players]);
+    const orangePlayers = useMemo(() => onlinePlayers.filter((p) => p.role === "teamorange"), [onlinePlayers]);
+    const greenPlayers = useMemo(() => onlinePlayers.filter((p) => p.role === "teamgreen"), [onlinePlayers]);
+    const spectators = useMemo(() => onlinePlayers.filter((p) => p.role === "spectator"), [onlinePlayers]);
+    const gameMaster = useMemo(() => onlinePlayers.find((p) => p.role === "gamemaster"), [onlinePlayers]);
 
     return (
         <div className="space-y-3">
             {showTitle && <h3 className="text-sm font-semibold text-white/80 mb-2">اللاعبون</h3>}
-            
+
             {gameMaster && (
                 <div className="flex items-center gap-2 relative">
                     <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                         style={{
-                             background: "rgba(216, 180, 254, 0.2)",
-                             border: "1px solid #d8b4fe",
-                         }}
+                        style={{
+                            background: "rgba(216, 180, 254, 0.2)",
+                            border: "1px solid #d8b4fe",
+                        }}
                     >
                         <UserIcon className="w-3 h-3" style={{ color: "#d8b4fe" }} />
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-xs text-purple-400/70 mb-1">{ROLE_LABEL.gamemaster}</p>
-                        <div 
+                        <div
                             className="px-2 py-1 rounded-md text-xs font-medium truncate flex justify-between items-center gap-2"
                             style={{
                                 background: "rgba(216, 180, 254, 0.15)",
@@ -64,15 +66,15 @@ const PlayerList = memo(function PlayerList({ players, showTitle = true, current
                     {orangePlayers.map(p => (
                         <div key={p.id} className="flex items-center gap-2 relative">
                             <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                                 style={{
-                                     background: "rgba(251, 146, 60, 0.2)",
-                                     border: "1px solid #fb923c",
-                                 }}
+                                style={{
+                                    background: "rgba(251, 146, 60, 0.2)",
+                                    border: "1px solid #fb923c",
+                                }}
                             >
                                 <UserIcon className="w-3 h-3" style={{ color: "#fb923c" }} />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div 
+                                <div
                                     className="px-2 py-1 rounded-md text-xs font-medium truncate flex justify-between items-center gap-2"
                                     style={{
                                         background: currentUserId === p.id ? "rgba(251, 146, 60, 0.25)" : "rgba(251, 146, 60, 0.15)",
@@ -96,15 +98,15 @@ const PlayerList = memo(function PlayerList({ players, showTitle = true, current
                     {greenPlayers.map(p => (
                         <div key={p.id} className="flex items-center gap-2 relative">
                             <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                                 style={{
-                                     background: "rgba(74, 222, 128, 0.2)",
-                                     border: "1px solid #4ade80",
-                                 }}
+                                style={{
+                                    background: "rgba(74, 222, 128, 0.2)",
+                                    border: "1px solid #4ade80",
+                                }}
                             >
                                 <UserIcon className="w-3 h-3" style={{ color: "#4ade80" }} />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div 
+                                <div
                                     className="px-2 py-1 rounded-md text-xs font-medium truncate flex justify-between items-center gap-2"
                                     style={{
                                         background: currentUserId === p.id ? "rgba(74, 222, 128, 0.25)" : "rgba(74, 222, 128, 0.15)",
@@ -128,15 +130,15 @@ const PlayerList = memo(function PlayerList({ players, showTitle = true, current
                     {spectators.map(p => (
                         <div key={p.id} className="flex items-center gap-2 relative">
                             <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                                 style={{
-                                     background: "rgba(156, 163, 175, 0.2)",
-                                     border: "1px solid #9ca3af",
-                                 }}
+                                style={{
+                                    background: "rgba(156, 163, 175, 0.2)",
+                                    border: "1px solid #9ca3af",
+                                }}
                             >
                                 <UserIcon className="w-3 h-3" style={{ color: "#9ca3af" }} />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div 
+                                <div
                                     className="px-2 py-1 rounded-md text-xs font-medium truncate flex justify-between items-center gap-2"
                                     style={{
                                         background: currentUserId === p.id ? "rgba(156, 163, 175, 0.25)" : "rgba(156, 163, 175, 0.15)",

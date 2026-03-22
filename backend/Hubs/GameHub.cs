@@ -31,6 +31,13 @@ public class GameHub : Hub
     public async Task<object> CreateSession(string? password, int gridSize, int totalRounds)
     {
         var userId = GetUserId();
+        
+        if (string.IsNullOrEmpty(userId)) return new { error = "Unauthorized" };
+        using var scope = _serviceProvider.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<Backend.Data.ApplicationDbContext>();
+        var user = await dbContext.Users.FindAsync(userId);
+        if (user == null) return new { error = "Guests cannot create sessions." };
+
         var session = _sessions.CreateSession(password, gridSize, totalRounds, userId);
         return new { sessionId = session.Id };
     }
@@ -358,11 +365,34 @@ public class GameHub : Hub
         return new { success = true };
     }
 
+    private async Task SavePlayerStats(GameSession session)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<Backend.Data.ApplicationDbContext>();
+        bool dbUpdated = false;
+
+        foreach (var player in session.Players.Where(p => !string.IsNullOrEmpty(p.UserId) && p.AnswersCount > 0))
+        {
+            var user = await dbContext.Users.FindAsync(player.UserId);
+            if (user != null)
+            {
+                user.CorrectAnswers += player.AnswersCount;
+                // Important: Reset answers logic count to avoid double-counting if they start a new lobby
+                player.AnswersCount = 0; 
+                dbUpdated = true;
+            }
+        }
+        if (dbUpdated) await dbContext.SaveChangesAsync();
+    }
+
     public async Task<object> ResetGame()
     {
         var sessionId = _sessions.GetSessionForConnection(Context.ConnectionId);
         if (sessionId == null) return new { error = "Not in a session" };
         if (!IsGameMaster(sessionId)) return new { error = "Not game master" };
+
+        var sessionToSave = _sessions.GetSession(sessionId);
+        if (sessionToSave != null) await SavePlayerStats(sessionToSave);
 
         _sessions.ResetGame(sessionId);
 
@@ -404,6 +434,9 @@ public class GameHub : Hub
         var sessionId = _sessions.GetSessionForConnection(Context.ConnectionId);
         if (sessionId == null) return new { error = "Not in a session" };
         if (!CanManageSession(sessionId)) return new { error = "Not allowed" };
+
+        var session = _sessions.GetSession(sessionId);
+        if (session != null) await SavePlayerStats(session);
 
         // Notify everyone in the session that it's ending
         await Clients.Group(sessionId).SendAsync("SessionEnded");

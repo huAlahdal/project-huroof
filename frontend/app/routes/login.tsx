@@ -33,6 +33,13 @@ export default function LoginPage() {
         <ThemeToggle />
       </div>
 
+      {/* Back Button */}
+      <div className="fixed top-3 right-3 z-20">
+        <Link to="/" className="btn-ghost px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 text-white/70 hover:text-white transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}>
+          العودة للرئيسية ◀
+        </Link>
+      </div>
+
       {/* Vignette */}
       <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 75% 65% at center,transparent 0%,rgba(0,0,0,0.4) 100%)" }} />
 

@@ -151,6 +151,7 @@ public class Player
     public string ConnectionId { get; set; } = ""; // SignalR connection ID
     public string Name { get; set; } = "";
     public PlayerRole Role { get; set; } = PlayerRole.Spectator;
+    public int AnswersCount { get; set; } = 0; // Track answers within the session
 }
 
 // ─── Question ───────────────────────────────────────────────
@@ -226,6 +227,8 @@ public class PlayerDto
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public string Role { get; set; } = "";
+    public int AnswersCount { get; set; } = 0;
+    public bool IsOnline { get; set; } = true;
 }
 
 public class LobbyStateDto

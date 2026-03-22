@@ -18,6 +18,7 @@ interface LobbyStateWire {
         Id?: string;
         Name?: string;
         Role?: string;
+        IsOnline?: boolean;
     }>;
     error?: string;
 }
@@ -36,7 +37,8 @@ function normalizeLobbyState(state: LobbyState | LobbyStateWire): LobbyState {
         players: (state.Players ?? []).map((player) => ({
             id: player.Id ?? "",
             name: player.Name ?? "",
-            role: player.Role ?? "spectator"
+            role: player.Role ?? "spectator",
+            isOnline: player.IsOnline ?? true,
         }))
     };
 }
@@ -308,7 +310,7 @@ export default function LobbyPage() {
 
     const handleCopySessionId = useCallback(async () => {
         if (!sessionId) return;
-        
+
         // Try modern clipboard API first
         if (navigator.clipboard && window.isSecureContext) {
             try {
@@ -320,7 +322,7 @@ export default function LobbyPage() {
                 console.log('Modern clipboard failed, trying fallback');
             }
         }
-        
+
         // Fallback method for older browsers or non-secure contexts
         try {
             const textArea = document.createElement("textarea");
@@ -332,10 +334,10 @@ export default function LobbyPage() {
             document.body.appendChild(textArea);
             textArea.focus();
             textArea.select();
-            
+
             const successful = document.execCommand('copy');
             document.body.removeChild(textArea);
-            
+
             if (successful) {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
@@ -377,9 +379,9 @@ export default function LobbyPage() {
                     <div className="text-5xl mb-4">🎮</div>
                     <h2 className="text-2xl font-black mb-1" style={{ color: "var(--text-1)" }}>انضمام للجلسة</h2>
                     <p className="text-sm mb-6" style={{ color: "var(--text-3)", direction: "ltr" }}>
-                        رمز الجلسة: 
+                        رمز الجلسة:
                         <span className="font-black" style={{ color: "var(--accent)" }}>{sessionId}</span>
-                        <button 
+                        <button
                             onClick={handleCopySessionId}
                             className="mr-2 p-1 rounded hover:bg-[var(--surface-hover)] transition-all duration-200"
                             title={copied ? "تم النسخ!" : "نسخ الرمز"}
@@ -422,7 +424,7 @@ export default function LobbyPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
-{/* Header */}
+            {/* Header */}
             <header className="relative bg-[#1a103c] border-b border-[var(--border)]">
                 <div className="max-w-6xl mx-auto px-4 py-3">
                     <div className="flex items-center justify-between">
@@ -437,7 +439,7 @@ export default function LobbyPage() {
                         </div>
                         <div className="flex items-center gap-2">
                             <ThemeToggle />
-                            <button 
+                            <button
                                 onClick={handleLeaveSession}
                                 className="group relative px-3 py-1.5 text-sm font-medium text-white/80 hover:text-white transition-all duration-200"
                             >
@@ -452,10 +454,10 @@ export default function LobbyPage() {
             <div className="relative max-w-6xl mx-auto px-4 py-6">
                 {/* Main Content - Compact Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    
+
                     {/* Left Column - Session Info & Settings */}
                     <div className="lg:col-span-1 space-y-4">
-                        
+
                         {/* Session Status Card */}
                         <div className="surface-card p-4 shadow-xl">
                             <div className="flex items-center justify-between mb-4">
@@ -520,7 +522,7 @@ export default function LobbyPage() {
                                                     className="flex-1 px-3 py-1.5 bg-[var(--surface)] rounded-lg text-white placeholder-white/40 text-sm border border-[var(--border)] focus:border-[var(--border-strong)] focus:outline-none"
                                                     placeholder="أدخل اسمك"
                                                 />
-                                                <button 
+                                                <button
                                                     onClick={handleUpdateMyName}
                                                     className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all duration-200 text-xs font-medium"
                                                 >
@@ -534,7 +536,7 @@ export default function LobbyPage() {
                                                 <code className="flex-1 px-3 py-1.5 bg-[var(--surface)] rounded-lg text-white font-mono text-sm border border-[var(--border)]">
                                                     {sessionId}
                                                 </code>
-                                                <button 
+                                                <button
                                                     onClick={handleCopySessionId}
                                                     className="p-1.5 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-hover)] transition-all duration-200"
                                                     title={copied ? "تم النسخ!" : "نسخ الرمز"}
@@ -559,7 +561,7 @@ export default function LobbyPage() {
                                                 </code>
                                             </div>
                                             {!changingPassword ? (
-                                                <button 
+                                                <button
                                                     onClick={() => setChangingPassword(true)}
                                                     className="mt-2 text-xs text-violet-400 hover:text-violet-300 transition-colors"
                                                 >
@@ -567,21 +569,21 @@ export default function LobbyPage() {
                                                 </button>
                                             ) : (
                                                 <div className="mt-2 flex gap-2">
-                                                    <input 
+                                                    <input
                                                         type="password"
                                                         value={newPassword}
                                                         onChange={(e) => setNewPassword(e.target.value)}
                                                         placeholder="كلمة المرور الجديدة"
                                                         className="flex-1 px-3 py-1.5 bg-[var(--surface)] rounded-lg text-white placeholder-white/40 text-sm border border-[var(--border)] focus:border-[var(--border-strong)] focus:outline-none"
                                                     />
-                                                    <button 
+                                                    <button
                                                         onClick={handleChangePassword}
                                                         disabled={!newPassword.trim()}
                                                         className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 text-xs font-medium"
                                                     >
                                                         حفظ
                                                     </button>
-                                                    <button 
+                                                    <button
                                                         onClick={() => { setChangingPassword(false); setNewPassword(""); }}
                                                         className="px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-white rounded-lg transition-all duration-200 border border-[var(--border)] text-xs"
                                                     >
@@ -660,67 +662,66 @@ export default function LobbyPage() {
 
                         {/* Player Profile - Only show for non-host players */}
                         {!isHost && (
-                        <div className="surface-card p-4 shadow-xl">
-                            <h2 className="text-base font-semibold text-white mb-3">ملفك</h2>
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="text-xs text-white/40 uppercase tracking-wider">اسمك</label>
-                                    <div className="mt-1 flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={myNameDraft}
-                                            onChange={(e) => setMyNameDraft(e.target.value)}
-                                            onBlur={handleUpdateMyName}
-                                            className="flex-1 px-3 py-1.5 bg-[var(--surface)] rounded-lg text-white placeholder-white/40 text-sm border border-[var(--border)] focus:border-[var(--border-strong)] focus:outline-none"
-                                            placeholder="أدخل اسمك"
-                                        />
-                                        <button 
-                                            onClick={handleUpdateMyName}
-                                            className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all duration-200 text-xs font-medium"
-                                        >
-                                            تحديث
-                                        </button>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-white/40 uppercase tracking-wider">دورك الحالي</label>
-                                    <div className="mt-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-2xl">{ROLE_EMOJI[myPlayer?.role || ""] || "❓"}</span>
-                                            <span className="text-sm font-medium text-white">{ROLE_LABEL[myPlayer?.role || ""] || "غير محدد"}</span>
+                            <div className="surface-card p-4 shadow-xl">
+                                <h2 className="text-base font-semibold text-white mb-3">ملفك</h2>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="text-xs text-white/40 uppercase tracking-wider">اسمك</label>
+                                        <div className="mt-1 flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={myNameDraft}
+                                                onChange={(e) => setMyNameDraft(e.target.value)}
+                                                onBlur={handleUpdateMyName}
+                                                className="flex-1 px-3 py-1.5 bg-[var(--surface)] rounded-lg text-white placeholder-white/40 text-sm border border-[var(--border)] focus:border-[var(--border-strong)] focus:outline-none"
+                                                placeholder="أدخل اسمك"
+                                            />
+                                            <button
+                                                onClick={handleUpdateMyName}
+                                                className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all duration-200 text-xs font-medium"
+                                            >
+                                                تحديث
+                                            </button>
                                         </div>
                                     </div>
-                                </div>
-                                {isHost && (
                                     <div>
-                                        <label className="text-xs text-white/40 uppercase tracking-wider">اختر دورك</label>
-                                        <div className="mt-2 grid grid-cols-2 gap-2">
-                                            {Object.entries(ROLE_LABEL).map(([role, label]) => {
-                                                const isDisabled = role === "gamemaster" && !isGameMaster;
-                                                const isSelected = myPlayer?.role === role;
-                                                return (
-                                                    <button
-                                                        key={role}
-                                                        onClick={() => handleSetRole(role)}
-                                                        disabled={isDisabled}
-                                                        className={`p-2 rounded-lg text-xs font-medium transition-all duration-200 ${
-                                                            isSelected
+                                        <label className="text-xs text-white/40 uppercase tracking-wider">دورك الحالي</label>
+                                        <div className="mt-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-2xl">{ROLE_EMOJI[myPlayer?.role || ""] || "❓"}</span>
+                                                <span className="text-sm font-medium text-white">{ROLE_LABEL[myPlayer?.role || ""] || "غير محدد"}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {isHost && (
+                                        <div>
+                                            <label className="text-xs text-white/40 uppercase tracking-wider">اختر دورك</label>
+                                            <div className="mt-2 grid grid-cols-2 gap-2">
+                                                {Object.entries(ROLE_LABEL).map(([role, label]) => {
+                                                    const isDisabled = role === "gamemaster" && !isGameMaster;
+                                                    const isSelected = myPlayer?.role === role;
+                                                    return (
+                                                        <button
+                                                            key={role}
+                                                            onClick={() => handleSetRole(role)}
+                                                            disabled={isDisabled}
+                                                            className={`p-2 rounded-lg text-xs font-medium transition-all duration-200 ${isSelected
                                                                 ? "bg-violet-600 text-white"
                                                                 : isDisabled
-                                                                ? "opacity-50 cursor-not-allowed bg-[var(--surface)] text-white/40"
-                                                                : "bg-[var(--surface)] text-white/80 hover:bg-[var(--surface-hover)]"
-                                                        }`}
-                                                    >
-                                                        <span className="ml-1">{ROLE_EMOJI[role]}</span>
-                                                        {label}
-                                                    </button>
-                                                );
-                                            })}
+                                                                    ? "opacity-50 cursor-not-allowed bg-[var(--surface)] text-white/40"
+                                                                    : "bg-[var(--surface)] text-white/80 hover:bg-[var(--surface-hover)]"
+                                                                }`}
+                                                        >
+                                                            <span className="ml-1">{ROLE_EMOJI[role]}</span>
+                                                            {label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
-                        </div>
                         )}
                     </div>
 
@@ -728,41 +729,41 @@ export default function LobbyPage() {
                     <div className="lg:col-span-2">
                         <div className="surface-card p-4 shadow-xl">
                             <h2 className="text-lg font-semibold text-white mb-6">اللاعبون</h2>
-                            
+
                             {/* Teams Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {[
-                                    { 
+                                    {
                                         roleId: "teamorange",
-                                        label: "الفريق البرتقالي", 
-                                        players: orangePlayers, 
+                                        label: "الفريق البرتقالي",
+                                        players: orangePlayers,
                                         color: "from-orange-500 to-red-500",
                                         borderColor: "border-orange-500/20",
                                         bgColor: "bg-orange-500/10",
                                         hoverColor: "hover:border-orange-500/50 hover:bg-orange-500/20"
                                     },
-                                    { 
+                                    {
                                         roleId: "teamgreen",
-                                        label: "الفريق الأخضر", 
-                                        players: greenPlayers, 
+                                        label: "الفريق الأخضر",
+                                        players: greenPlayers,
                                         color: "from-green-500 to-emerald-500",
                                         borderColor: "border-green-500/20",
                                         bgColor: "bg-green-500/10",
                                         hoverColor: "hover:border-green-500/50 hover:bg-green-500/20"
                                     },
-                                    { 
+                                    {
                                         roleId: "gamemaster",
-                                        label: "مدير اللعبة", 
-                                        players: players.filter((p) => p.role === "gamemaster"), 
+                                        label: "مدير اللعبة",
+                                        players: players.filter((p) => p.role === "gamemaster"),
                                         color: "from-violet-500 to-purple-500",
                                         borderColor: "border-violet-500/20",
                                         bgColor: "bg-violet-500/10",
                                         hoverColor: "hover:border-violet-500/50 hover:bg-violet-500/20"
                                     },
-                                    { 
+                                    {
                                         roleId: "spectator",
-                                        label: "المشاهدون", 
-                                        players: spectators, 
+                                        label: "المشاهدون",
+                                        players: spectators,
                                         color: "from-slate-500 to-gray-500",
                                         borderColor: "border-slate-500/20",
                                         bgColor: "bg-slate-500/10",
@@ -771,13 +772,12 @@ export default function LobbyPage() {
                                 ].map((team) => {
                                     const isActive = myPlayer?.role === team.roleId;
                                     const canJoin = !isActive && !(team.roleId === "gamemaster" && hasGameMaster && !isGameMaster);
-                                    
+
                                     return (
-                                        <div 
-                                            key={team.label} 
-                                            className={`rounded-xl border ${team.borderColor} ${team.bgColor} p-4 transition-all duration-300 relative ${
-                                                canJoin ? `cursor-pointer ${team.hoverColor} group` : ''
-                                            } ${isActive ? 'ring-2 ring-white/20' : ''}`}
+                                        <div
+                                            key={team.label}
+                                            className={`rounded-xl border ${team.borderColor} ${team.bgColor} p-4 transition-all duration-300 relative ${canJoin ? `cursor-pointer ${team.hoverColor} group` : ''
+                                                } ${isActive ? 'ring-2 ring-white/20' : ''}`}
                                             onClick={() => {
                                                 if (canJoin) handleSetRole(team.roleId);
                                             }}
@@ -794,131 +794,130 @@ export default function LobbyPage() {
                                                 )}
                                             </div>
                                             <div className="space-y-2 relative z-10">
-                                            {team.players.map((p) => (
-                                                <div
-                                                    key={p.id}
-                                                    className={`group relative rounded-lg bg-[var(--surface)] border border-[var(--border)] p-3 transition-all duration-200 ${
-                                                        isHost && p.id !== myPlayerId ? 'cursor-pointer hover:bg-[var(--surface-hover)]' : ''
-                                                    }`}
-                                                    onClick={(e) => {
-                                                        if (isHost && p.id !== myPlayerId) {
-                                                            e.stopPropagation();
-                                                            setSelectedPlayerId(selectedPlayerId === p.id ? null : p.id);
-                                                        }
-                                                    }}
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${team.color} flex items-center justify-center shrink-0`}>
-                                                            <UserIcon className="w-5 h-5 text-white" />
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2">
-                                                                <p className="font-medium text-white truncate">{p.name}</p>
-                                                                {lobby?.hostPlayerId === p.id && (
-                                                                    <span className="text-yellow-400" title="صاحب الجلسة">👑</span>
-                                                                )}
+                                                {team.players.map((p) => (
+                                                    <div
+                                                        key={p.id}
+                                                        className={`group relative rounded-lg bg-[var(--surface)] border border-[var(--border)] p-3 transition-all duration-200 ${isHost && p.id !== myPlayerId ? 'cursor-pointer hover:bg-[var(--surface-hover)]' : ''
+                                                            }`}
+                                                        onClick={(e) => {
+                                                            if (isHost && p.id !== myPlayerId) {
+                                                                e.stopPropagation();
+                                                                setSelectedPlayerId(selectedPlayerId === p.id ? null : p.id);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${team.color} flex items-center justify-center shrink-0`}>
+                                                                <UserIcon className="w-5 h-5 text-white" />
                                                             </div>
-                                                            <p className="text-xs text-white/60">
-                                                                {p.id === myPlayerId ? "أنت" : lobby?.hostPlayerId === p.id ? "صاحب الجلسة" : ""}
-                                                            </p>
-                                                        </div>
-                                                        {isGameMaster && p.id !== myPlayerId && (
-                                                            <span className="text-white/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                {selectedPlayerId === p.id ? '▲' : '▼'}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {isGameMaster && p.id !== myPlayerId && selectedPlayerId === p.id && (
-                                                        <div className="flex gap-2 mt-3 fade-in-scale">
-                                                            {isHost && (
-                                                                <button
-                                                                    className="flex-1 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-xs font-medium transition-colors"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setHostRenameId(p.id);
-                                                                        setHostRenameDraft(p.name);
-                                                                        setSelectedPlayerId(null);
-                                                                    }}
-                                                                >
-                                                                    تعديل
-                                                                </button>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className="font-medium text-white truncate">{p.name}</p>
+                                                                    {lobby?.hostPlayerId === p.id && (
+                                                                        <span className="text-yellow-400" title="صاحب الجلسة">👑</span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-xs text-white/60">
+                                                                    {p.id === myPlayerId ? "أنت" : lobby?.hostPlayerId === p.id ? "صاحب الجلسة" : ""}
+                                                                </p>
+                                                            </div>
+                                                            {isGameMaster && p.id !== myPlayerId && (
+                                                                <span className="text-white/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    {selectedPlayerId === p.id ? '▲' : '▼'}
+                                                                </span>
                                                             )}
-                                                            {p.role === "spectator" ? (
-                                                                <>
+                                                        </div>
+                                                        {isGameMaster && p.id !== myPlayerId && selectedPlayerId === p.id && (
+                                                            <div className="flex gap-2 mt-3 fade-in-scale">
+                                                                {isHost && (
                                                                     <button
-                                                                        className="flex-1 px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg text-xs font-medium transition-colors"
+                                                                        className="flex-1 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-xs font-medium transition-colors"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            handleMoveSpectator(p.id, "teamorange");
+                                                                            setHostRenameId(p.id);
+                                                                            setHostRenameDraft(p.name);
+                                                                            setSelectedPlayerId(null);
                                                                         }}
                                                                     >
-                                                                        للبرتقالي
+                                                                        تعديل
                                                                     </button>
+                                                                )}
+                                                                {p.role === "spectator" ? (
+                                                                    <>
+                                                                        <button
+                                                                            className="flex-1 px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg text-xs font-medium transition-colors"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleMoveSpectator(p.id, "teamorange");
+                                                                            }}
+                                                                        >
+                                                                            للبرتقالي
+                                                                        </button>
+                                                                        <button
+                                                                            className="flex-1 px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-xs font-medium transition-colors"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleMoveSpectator(p.id, "teamgreen");
+                                                                            }}
+                                                                        >
+                                                                            للأخضر
+                                                                        </button>
+                                                                    </>
+                                                                ) : p.role === "teamorange" ? (
                                                                     <button
                                                                         className="flex-1 px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-xs font-medium transition-colors"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            handleMoveSpectator(p.id, "teamgreen");
+                                                                            handleSwitchTeam(p.id, "teamgreen");
                                                                         }}
                                                                     >
                                                                         للأخضر
                                                                     </button>
-                                                                </>
-                                                            ) : p.role === "teamorange" ? (
+                                                                ) : p.role === "teamgreen" ? (
+                                                                    <button
+                                                                        className="flex-1 px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg text-xs font-medium transition-colors"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleSwitchTeam(p.id, "teamorange");
+                                                                        }}
+                                                                    >
+                                                                        للبرتقالي
+                                                                    </button>
+                                                                ) : null}
                                                                 <button
-                                                                    className="flex-1 px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-xs font-medium transition-colors"
+                                                                    className="flex-1 px-3 py-1.5 bg-slate-500/20 hover:bg-slate-500/30 text-slate-400 rounded-lg text-xs font-medium transition-colors"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        handleSwitchTeam(p.id, "teamgreen");
+                                                                        handleSwitchTeam(p.id, "spectator");
                                                                     }}
                                                                 >
-                                                                    للأخضر
+                                                                    مشاهد
                                                                 </button>
-                                                            ) : p.role === "teamgreen" ? (
                                                                 <button
-                                                                    className="flex-1 px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg text-xs font-medium transition-colors"
+                                                                    className="flex-1 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        handleSwitchTeam(p.id, "teamorange");
+                                                                        handleKickPlayer(p.id);
+                                                                        setSelectedPlayerId(null);
                                                                     }}
                                                                 >
-                                                                    للبرتقالي
+                                                                    طرد
                                                                 </button>
-                                                            ) : null}
-                                                            <button
-                                                                className="flex-1 px-3 py-1.5 bg-slate-500/20 hover:bg-slate-500/30 text-slate-400 rounded-lg text-xs font-medium transition-colors"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleSwitchTeam(p.id, "spectator");
-                                                                }}
-                                                            >
-                                                                مشاهد
-                                                            </button>
-                                                            <button
-                                                                className="flex-1 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleKickPlayer(p.id);
-                                                                    setSelectedPlayerId(null);
-                                                                }}
-                                                            >
-                                                                طرد
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                            {team.players.length === 0 && (
-                                                <div className="flex flex-col items-center justify-center py-6 gap-2 text-white/30 border-2 border-dashed border-white/5 rounded-lg transition-colors group-hover:border-white/20 group-hover:text-white/50">
-                                                    <UserIcon className="w-6 h-6 mb-1 opacity-50" />
-                                                    <p className="text-xs font-medium">لا يوجد لاعبون</p>
-                                                    {canJoin && <p className="text-[10px] font-bold mt-1 text-white/50">انقر للانضمام</p>}
-                                                </div>
-                                            )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                {team.players.length === 0 && (
+                                                    <div className="flex flex-col items-center justify-center py-6 gap-2 text-white/30 border-2 border-dashed border-white/5 rounded-lg transition-colors group-hover:border-white/20 group-hover:text-white/50">
+                                                        <UserIcon className="w-6 h-6 mb-1 opacity-50" />
+                                                        <p className="text-xs font-medium">لا يوجد لاعبون</p>
+                                                        {canJoin && <p className="text-[10px] font-bold mt-1 text-white/50">انقر للانضمام</p>}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
                             </div>
                         </div>
 
@@ -937,15 +936,13 @@ export default function LobbyPage() {
                                         return (
                                             <button
                                                 key={role.key}
-                                                className={`relative px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
-                                                    role.disabled 
-                                                        ? 'opacity-50 cursor-not-allowed' 
-                                                        : 'cursor-pointer'
-                                                } ${
-                                                    active 
-                                                        ? `bg-gradient-to-r ${role.color} text-white shadow-lg` 
+                                                className={`relative px-4 py-3 rounded-xl font-medium transition-all duration-200 ${role.disabled
+                                                    ? 'opacity-50 cursor-not-allowed'
+                                                    : 'cursor-pointer'
+                                                    } ${active
+                                                        ? `bg-gradient-to-r ${role.color} text-white shadow-lg`
                                                         : 'bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-white/80 hover:text-white border border-[var(--border)]'
-                                                }`}
+                                                    }`}
                                                 onClick={() => !role.disabled && handleSetRole(role.key)}
                                                 disabled={role.disabled}
                                             >
@@ -964,7 +961,7 @@ export default function LobbyPage() {
                         {/* Start Game Button */}
                         {canControlGame && lobby && players.length >= 2 && orangePlayers.length >= 1 && greenPlayers.length >= 1 && (
                             <div className="mt-6 text-center">
-                                <button 
+                                <button
                                     className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl font-semibold text-lg shadow-lg shadow-green-500/25 transition-all duration-200 transform hover:scale-105"
                                     onClick={handleStartGame}
                                 >
@@ -972,7 +969,7 @@ export default function LobbyPage() {
                                 </button>
                             </div>
                         )}
-                        
+
                         {/* Show warning if teams are not balanced */}
                         {canControlGame && lobby && players.length >= 2 && (orangePlayers.length === 0 || greenPlayers.length === 0) && (
                             <div className="mt-6 text-center">
@@ -991,7 +988,7 @@ export default function LobbyPage() {
             {error && (
                 <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 px-6 py-3 bg-red-500/20  border border-red-500/30 rounded-lg text-red-400 text-sm font-medium animate-bounce flex items-center gap-3">
                     <span>{error}</span>
-                    <button 
+                    <button
                         onClick={() => window.location.reload()}
                         className="px-3 py-1 bg-red-500/30 hover:bg-red-500/40 rounded-md text-xs font-semibold transition-colors"
                     >

@@ -10,6 +10,7 @@ interface WinScreenProps {
     currentRound: number;
     totalRounds: number;
     isGameMaster: boolean;
+    players: { id: string, name: string, role: string, answersCount?: number }[];
     onNextRound: () => void;
     onRestart: () => void;
 }
@@ -59,6 +60,7 @@ export default function WinScreen({
     currentRound,
     totalRounds,
     isGameMaster,
+    players,
     onNextRound,
     onRestart,
 }: WinScreenProps) {
@@ -137,18 +139,44 @@ export default function WinScreen({
 
                     {/* Scores */}
                     {showDetails && (
-                        <div className="flex justify-center gap-6 my-6 fade-in">
-                            {[
-                                { name: orangeName, score: orangeScore, color: "#f97316" },
-                                { name: greenName, score: greenScore, color: "#22c55e" },
-                            ].map((t) => (
-                                <div key={t.name} className="flex flex-col items-center gap-2">
-                                    <div className="score-badge" style={{ color: t.color }}>
-                                        {t.score}
+                        <div className="flex flex-col items-center gap-6 my-6 fade-in">
+                            <div className="flex justify-center gap-6 w-full">
+                                {[
+                                    { name: orangeName, score: orangeScore, color: "#f97316" },
+                                    { name: greenName, score: greenScore, color: "#22c55e" },
+                                ].map((t) => (
+                                    <div key={t.name} className="flex flex-col items-center gap-2">
+                                        <div className="score-badge" style={{ color: t.color }}>
+                                            {t.score}
+                                        </div>
+                                        <span className="text-white/70 text-sm font-semibold">{t.name}</span>
                                     </div>
-                                    <span className="text-white/70 text-sm font-semibold">{t.name}</span>
+                                ))}
+                            </div>
+
+                            {/* Top Players */}
+                            {players && players.some(p => (p.answersCount || 0) > 0) && (
+                                <div className="p-4 rounded-xl w-full max-w-sm bg-white/5 border border-white/10 fade-in text-right">
+                                    <h3 className="text-xs font-bold text-white/60 mb-3 text-center uppercase tracking-widest">أفضل المجيبين</h3>
+                                    <div className="space-y-2">
+                                        {players
+                                            .filter(p => (p.answersCount || 0) > 0)
+                                            .sort((a, b) => (b.answersCount || 0) - (a.answersCount || 0))
+                                            .slice(0, 5)
+                                            .map((p, i) => (
+                                                <div key={p.id} className="flex items-center justify-between text-sm bg-black/20 rounded-lg px-3 py-2 border border-white/5">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-white/30 text-xs font-bold w-4 text-center">{i + 1}.</span>
+                                                        <span className="text-white/90 font-semibold">{p.name}</span>
+                                                    </div>
+                                                    <span className="text-purple-300 font-bold bg-purple-500/20 px-2 py-0.5 rounded-md text-xs border border-purple-500/20">
+                                                        {p.answersCount} {p.answersCount === 1 ? 'إجابة' : 'إجابات'}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                    </div>
                                 </div>
-                            ))}
+                            )}
                         </div>
                     )}
 

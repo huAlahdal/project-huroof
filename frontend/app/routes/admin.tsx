@@ -642,6 +642,7 @@ export default function AdminPage() {
                                         <div className="flex gap-2">
                                             <button onClick={() => resetSession(selectedSessionData.id)} className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition-all">🔄 إعادة تعيين</button>
                                             <button onClick={() => endSession(selectedSessionData.id)} className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-all">🗑️ إنهاء</button>
+                                            <button onClick={() => navigate(`/game/${selectedSessionData.id}`)} className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all">🎮 انضم كمدير</button>
                                         </div>
                                     </div>
 
