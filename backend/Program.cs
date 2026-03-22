@@ -41,9 +41,10 @@ builder.Services.AddSignalR(options =>
     // Increase max message size if needed (default is 32KB)
     options.MaximumReceiveMessageSize = 128 * 1024; // 128KB
     
-    // Keep alive interval to detect disconnections faster
+    // Keep alive interval — mobile browsers can be suspended for 60-90s when
+    // the screen locks, so we give a generous timeout before dropping the client.
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);
-    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(90);
     
     // Stateful reconnect for better UX
     options.MaximumParallelInvocationsPerClient = 1;

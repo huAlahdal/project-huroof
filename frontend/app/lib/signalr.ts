@@ -6,34 +6,56 @@ import { getToken } from './tokenStore';
 let connection: signalR.HubConnection | null = null;
 let connectionPromise: Promise<void> | null = null;
 
+// Callbacks registered by the game page so it can re-join its session
+// whenever SignalR transparently reconnects.
+let _reconnectedCallback: (() => void) | null = null;
+let _disconnectedCallback: (() => void) | null = null;
+
+export function setReconnectedCallback(cb: (() => void) | null) {
+  _reconnectedCallback = cb;
+}
+export function setDisconnectedCallback(cb: (() => void) | null) {
+  _disconnectedCallback = cb;
+}
+
+/** Tear down the singleton so the next startConnection() builds a fresh one. */
+export function resetConnection() {
+  try { connection?.stop(); } catch { /* ignore */ }
+  connection = null;
+  connectionPromise = null;
+}
+
 export function getConnection(): signalR.HubConnection {
   if (!connection) {
-    // Use the configured SIGNALR_URL
     const backendUrl = SIGNALR_URL;
-    
+
     connection = new signalR.HubConnectionBuilder()
       .withUrl(backendUrl, {
         accessTokenFactory: () => getToken() || "",
       })
-      .withHubProtocol(new MessagePackHubProtocol()) // Use MessagePack for better performance
+      .withHubProtocol(new MessagePackHubProtocol())
       .withAutomaticReconnect({
         nextRetryDelayInMilliseconds: (retryContext) => {
-          // Exponential backoff with jitter for better reconnection
-          if (retryContext.elapsedMilliseconds < 120000) {
-            const baseDelay = Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 30000);
-            const jitter = Math.random() * 1000; // Add jitter to prevent thundering herd
-            return baseDelay + jitter;
+          // Keep retrying for up to 10 minutes with capped exponential backoff.
+          // Mobile browsers can be backgrounded for a long time.
+          if (retryContext.elapsedMilliseconds < 600_000) {
+            const base = Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 30_000);
+            const jitter = Math.random() * 1000;
+            return base + jitter;
           }
-          return null; // Stop retrying after 2 minutes
+          return null; // give up after 10 min — onclose fires
         }
       })
-      .withStatefulReconnect() // Enable stateful reconnect for better UX
+      .withStatefulReconnect()
       .configureLogging(signalR.LogLevel.Warning)
       .build();
 
     connection.onclose(() => {
-      console.error("[SignalR] Connection closed.");
+      console.error("[SignalR] Connection closed permanently.");
       connectionPromise = null;
+      // Reset singleton so a future visibility/online event can start fresh.
+      connection = null;
+      _disconnectedCallback?.();
     });
 
     connection.onreconnecting(() => {
@@ -41,7 +63,8 @@ export function getConnection(): signalR.HubConnection {
     });
 
     connection.onreconnected(() => {
-      console.log("[SignalR] Reconnected.");
+      console.log("[SignalR] Reconnected — rejoining session.");
+      _reconnectedCallback?.();
     });
   }
   return connection;
@@ -96,13 +119,4 @@ export function on(event: string, callback: (...args: unknown[]) => void) {
 
 export function getConnectionState(): signalR.HubConnectionState {
   return connection?.state ?? signalR.HubConnectionState.Disconnected;
-}
-
-/** Reset the connection (e.g. after login/logout so new token is used) */
-export async function resetConnection(): Promise<void> {
-  if (connection) {
-    try { await connection.stop(); } catch { /* ignore */ }
-    connection = null;
-  }
-  connectionPromise = null;
 }

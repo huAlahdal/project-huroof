@@ -153,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     removeStoredToken();
     setState({ user: null, token: null, loading: false });
     // Stop SignalR so it doesn't keep reconnecting with an invalid token
-    resetConnection().catch(() => {});
+    resetConnection();
   }, []);
 
   const updateProfile = useCallback(async (data: { username?: string; inGameName?: string; email?: string }) => {

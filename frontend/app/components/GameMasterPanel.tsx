@@ -72,8 +72,8 @@ function Section({
     return (
         <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)" }}>
             <button
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-[var(--surface)] transition-colors"
-                style={{ background: "none", border: "none", cursor: "pointer" }}
+                className="w-full flex items-center justify-between px-4 py-4 hover:bg-[var(--surface)] transition-colors"
+                style={{ background: "none", border: "none", cursor: "pointer", minHeight: "52px" }}
                 onClick={() => setOpen((o) => !o)}
             >
                 <div className="flex items-center gap-2">
@@ -138,8 +138,8 @@ function ActionBtn({
         <button
             onClick={onClick}
             disabled={disabled}
-            className="py-2 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-40"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-2)", cursor: disabled ? "not-allowed" : "pointer", ...style }}
+            className="py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-40"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-2)", cursor: disabled ? "not-allowed" : "pointer", minHeight: "48px", ...style }}
         >
             {children}
         </button>
@@ -270,7 +270,7 @@ export default function GameMasterPanel({
                     </div>
 
                     {/* Action row */}
-                    <div className="grid grid-cols-4 gap-1.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <ActionBtn
                             onClick={() => onShowQuestion(!showQuestion)}
                             style={showQuestion
@@ -315,26 +315,28 @@ export default function GameMasterPanel({
     // 
 
     const renderAward = () => (
-        <div className="space-y-1.5">
-            <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2.5">
                 <button
-                    className="btn-orange py-6 text-xl font-black rounded-xl active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2 shadow-lg"
+                    className="btn-orange py-7 text-xl font-black rounded-2xl active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2 shadow-lg"
                     onClick={onAwardOrange}
                     disabled={!hasQuestion}
+                    style={{ minHeight: "72px" }}
                 >
-                    <UserIcon /> <span className="pt-1">برتقالي</span>
+                    <UserIcon /> <span>برتقالي</span>
                 </button>
                 <button
-                    className="btn-green py-6 text-xl font-black rounded-xl active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2 shadow-lg"
+                    className="btn-green py-7 text-xl font-black rounded-2xl active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2 shadow-lg"
                     onClick={onAwardGreen}
                     disabled={!hasQuestion}
+                    style={{ minHeight: "72px" }}
                 >
                      {greenName.split(" - ")[0]}
                 </button>
             </div>
             <button
-                className="w-full py-2 rounded-xl font-bold text-xs disabled:opacity-40"
-                style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-3)", cursor: hasQuestion ? "pointer" : "not-allowed" }}
+                className="w-full py-3.5 rounded-xl font-bold text-sm disabled:opacity-40"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-3)", cursor: hasQuestion ? "pointer" : "not-allowed", minHeight: "48px" }}
                 onClick={onSkip}
                 disabled={!hasQuestion}
             >
@@ -358,10 +360,10 @@ export default function GameMasterPanel({
                         <p className="text-[11px] mt-0.5" style={{ color: "var(--text-4)" }}>بانتظار ضغط الجرس...</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <button className="py-1.5 rounded-xl text-xs font-bold" style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "var(--text-2)", cursor: "pointer" }} onClick={onResetBuzzer}>
+                        <button className="py-4 rounded-xl text-sm font-bold" style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "var(--text-2)", cursor: "pointer", minHeight: "52px" }} onClick={onResetBuzzer}>
                              إغلاق
                         </button>
-                        <div className="rounded-xl flex items-center justify-center text-[10px] font-bold text-yellow-500/60 border" style={{ borderColor: "rgba(234,179,8,0.2)" }}>
+                        <div className="rounded-xl flex items-center justify-center text-xs font-bold text-yellow-500/60 border" style={{ borderColor: "rgba(234,179,8,0.2)", minHeight: "52px" }}>
                             انتظار...
                         </div>
                     </div>
@@ -373,25 +375,25 @@ export default function GameMasterPanel({
         if (!buzzedTeam) {
             return (
                 <div className="rounded-2xl p-3 space-y-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
-                    <div className="grid grid-cols-2 gap-4 mb-2">
+                    <div className="grid grid-cols-2 gap-4 mb-3">
                         <div>
-                            <label className="text-[10px] font-semibold block mb-2 text-center" style={{ color: "var(--text-3)" }}>⏱️ المحاولة (ث)</label>
-                            <div className="flex items-center gap-1 justify-center bg-white/5 rounded-lg p-1 border border-white/10">
-                                <button onClick={() => onSetTimerConfig(Math.max(1, buzzerTimerFirst - 1), undefined)} className="w-8 h-8 rounded bg-white/10 text-white font-bold active:bg-white/20 transition-colors flex items-center justify-center">-</button>
-                                <span className="font-black w-8 text-center text-lg">{buzzerTimerFirst}</span>
-                                <button onClick={() => onSetTimerConfig(buzzerTimerFirst + 1, undefined)} className="w-8 h-8 rounded bg-white/10 text-white font-bold active:bg-white/20 transition-colors flex items-center justify-center">+</button>
+                            <label className="text-xs font-semibold block mb-2 text-center" style={{ color: "var(--text-3)" }}>⏱️ المحاولة (ث)</label>
+                            <div className="flex items-center gap-1 justify-center bg-white/5 rounded-lg p-1.5 border border-white/10">
+                                <button onClick={() => onSetTimerConfig(Math.max(1, buzzerTimerFirst - 1), undefined)} className="w-11 h-11 rounded bg-white/10 text-white text-xl font-bold active:bg-white/20 transition-colors flex items-center justify-center">-</button>
+                                <span className="font-black w-10 text-center text-2xl">{buzzerTimerFirst}</span>
+                                <button onClick={() => onSetTimerConfig(buzzerTimerFirst + 1, undefined)} className="w-11 h-11 rounded bg-white/10 text-white text-xl font-bold active:bg-white/20 transition-colors flex items-center justify-center">+</button>
                             </div>
                         </div>
                         <div>
-                            <label className="text-[10px] font-semibold block mb-2 text-center" style={{ color: "var(--text-3)" }}>⏱️ النقاش (ث)</label>
-                            <div className="flex items-center gap-1 justify-center bg-white/5 rounded-lg p-1 border border-white/10">
-                                <button onClick={() => onSetTimerConfig(undefined, Math.max(1, buzzerTimerSecond - 1))} className="w-8 h-8 rounded bg-white/10 text-white font-bold active:bg-white/20 transition-colors flex items-center justify-center">-</button>
-                                <span className="font-black w-8 text-center text-lg">{buzzerTimerSecond}</span>
-                                <button onClick={() => onSetTimerConfig(undefined, buzzerTimerSecond + 1)} className="w-8 h-8 rounded bg-white/10 text-white font-bold active:bg-white/20 transition-colors flex items-center justify-center">+</button>
+                            <label className="text-xs font-semibold block mb-2 text-center" style={{ color: "var(--text-3)" }}>⏱️ النقاش (ث)</label>
+                            <div className="flex items-center gap-1 justify-center bg-white/5 rounded-lg p-1.5 border border-white/10">
+                                <button onClick={() => onSetTimerConfig(undefined, Math.max(1, buzzerTimerSecond - 1))} className="w-11 h-11 rounded bg-white/10 text-white text-xl font-bold active:bg-white/20 transition-colors flex items-center justify-center">-</button>
+                                <span className="font-black w-10 text-center text-2xl">{buzzerTimerSecond}</span>
+                                <button onClick={() => onSetTimerConfig(undefined, buzzerTimerSecond + 1)} className="w-11 h-11 rounded bg-white/10 text-white text-xl font-bold active:bg-white/20 transition-colors flex items-center justify-center">+</button>
                             </div>
                         </div>
                     </div>
-                    <button className="w-full py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95" style={{ background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.40)", color: "#facc15", cursor: hasQuestion ? "pointer" : "not-allowed", boxShadow: hasQuestion ? "0 4px 12px rgba(234,179,8,0.15)" : "none" }} onClick={onOpenBuzzer} disabled={!hasQuestion}>
+                    <button className="w-full py-4 rounded-xl font-bold text-base disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95" style={{ background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.40)", color: "#facc15", cursor: hasQuestion ? "pointer" : "not-allowed", boxShadow: hasQuestion ? "0 4px 12px rgba(234,179,8,0.15)" : "none", minHeight: "56px" }} onClick={onOpenBuzzer} disabled={!hasQuestion}>
                          🔓 فتح الجرس للجميع
                     </button>
                     <p className="text-xs text-center mt-2 font-medium" style={{ color: "var(--text-4)" }}> بانتظار ضغط الجرس...</p>
@@ -454,10 +456,10 @@ export default function GameMasterPanel({
                 )}
 
                 {/* Actions */}
-                <div className="px-3 pb-3 flex gap-1.5">
-                    <button className="flex-1 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1" style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "var(--text-2)", cursor: "pointer" }} onClick={onResetBuzzer}> 🔄 تعيين</button>
-                    {!passedToOtherTeamAt && <button className="flex-1 py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1" style={{ background: buzzedTeam === "orange" ? "rgba(34,197,94,0.14)" : "rgba(249,115,22,0.14)", border: `1px solid ${buzzedTeam === "orange" ? "#22c55e40" : "#f9731640"}`, color: buzzedTeam === "orange" ? "#4ade80" : "#fb923c", cursor: "pointer" }} onClick={onPassToOtherTeam}> ➡️ تمرير</button>}
-                    <button className="flex-1 py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1" style={{ background: buzzerIsOpenMode ? "rgba(234,179,8,0.22)" : "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#facc15", cursor: "pointer" }} onClick={onOpenBuzzer}> 🔓 فتح</button>
+                <div className="px-3 pb-3 flex gap-2">
+                    <button className="flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-1" style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "var(--text-2)", cursor: "pointer", minHeight: "52px" }} onClick={onResetBuzzer}> 🔄 تعيين</button>
+                    {!passedToOtherTeamAt && <button className="flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-1" style={{ background: buzzedTeam === "orange" ? "rgba(34,197,94,0.14)" : "rgba(249,115,22,0.14)", border: `1px solid ${buzzedTeam === "orange" ? "#22c55e40" : "#f9731640"}`, color: buzzedTeam === "orange" ? "#4ade80" : "#fb923c", cursor: "pointer", minHeight: "52px" }} onClick={onPassToOtherTeam}> ➡️ تمرير</button>}
+                    <button className="flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-1" style={{ background: buzzerIsOpenMode ? "rgba(234,179,8,0.22)" : "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#facc15", cursor: "pointer", minHeight: "52px" }} onClick={onOpenBuzzer}> 🔓 فتح</button>
                 </div>
             </div>
         );
@@ -492,7 +494,8 @@ export default function GameMasterPanel({
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className="flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 relative transition-all"
+                            className="flex-1 py-4 text-sm font-bold flex items-center justify-center gap-1.5 relative transition-all"
+                            style={{ minHeight: "56px" }}
                             style={{
                                 background: activeTab === tab.id ? "rgba(168,85,247,0.18)" : "transparent",
                                 color: activeTab === tab.id ? "#d8b4fe" : "var(--text-3)",
@@ -522,7 +525,13 @@ export default function GameMasterPanel({
                         {/*  2. AWARD  */}
                         <div className="space-y-1.5">
                             <DivLabel label="منح الخلية" />
-                            {renderAward()}
+                            {/* Hidden on mobile — sticky bottom bar handles award actions */}
+                            <div className="hidden sm:block">
+                                {renderAward()}
+                            </div>
+                            <p className="sm:hidden text-xs text-center py-2 rounded-xl" style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)", color: "#c4b5fd" }}>
+                                👇 أزرار المنح في الشريط السفلي
+                            </p>
                         </div>
 
                         {/*  3. BUZZER  */}
@@ -547,8 +556,8 @@ export default function GameMasterPanel({
                             return (
                                 <div key={p.id} className="space-y-1">
                                     <button
-                                        className="w-full rounded-xl px-3 py-2 text-xs font-bold transition-all"
-                                        style={{
+                                        className="w-full rounded-xl px-3 py-3.5 text-sm font-bold transition-all"
+                                        style={{ minHeight: "52px",
                                             background: isSelected ? "rgba(168,85,247,0.15)" : switchFrom === p.id ? "rgba(234,179,8,0.12)" : "rgba(255,255,255,0.04)",
                                             border: isSelected ? "1px solid rgba(168,85,247,0.35)" : switchFrom === p.id ? "1px solid rgba(234,179,8,0.3)" : "1px solid var(--border)",
                                             color: clr,
@@ -572,20 +581,20 @@ export default function GameMasterPanel({
                                     </button>
 
                                     {!isGM && isSelected && (
-                                        <div className="flex gap-1 px-1 fade-in-scale flex-wrap">
+                                        <div className="flex gap-1.5 px-1 fade-in-scale flex-wrap">
                                             {isSpectator ? (
                                                 <>
-                                                    <button className="flex-1 text-xs py-1.5 rounded-lg font-medium" style={{ background: "rgba(251,146,60,0.2)", color: "#fb923c", border: "1px solid rgba(251,146,60,0.3)", cursor: "pointer" }} onClick={() => { onMoveSpectatorToTeam?.(p.id, "teamorange"); setSelectedPlayer(null); }}> برتقالي</button>
-                                                    <button className="flex-1 text-xs py-1.5 rounded-lg font-medium" style={{ background: "rgba(74,222,128,0.2)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)", cursor: "pointer" }} onClick={() => { onMoveSpectatorToTeam?.(p.id, "teamgreen"); setSelectedPlayer(null); }}> أخضر</button>
+                                                    <button className="flex-1 text-sm py-3 rounded-xl font-medium" style={{ background: "rgba(251,146,60,0.2)", color: "#fb923c", border: "1px solid rgba(251,146,60,0.3)", cursor: "pointer", minHeight: "48px" }} onClick={() => { onMoveSpectatorToTeam?.(p.id, "teamorange"); setSelectedPlayer(null); }}> برتقالي</button>
+                                                    <button className="flex-1 text-sm py-3 rounded-xl font-medium" style={{ background: "rgba(74,222,128,0.2)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)", cursor: "pointer", minHeight: "48px" }} onClick={() => { onMoveSpectatorToTeam?.(p.id, "teamgreen"); setSelectedPlayer(null); }}> أخضر</button>
                                                 </>
                                             ) : (
                                                 <>
-                                                    {isOrange && <button className="flex-1 text-xs py-1.5 rounded-lg font-medium" style={{ background: "rgba(74,222,128,0.2)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)", cursor: "pointer" }} onClick={() => { onSwitchPlayerTeam?.(p.id, "teamgreen"); setSelectedPlayer(null); setSwitchFrom(null); }}> أخضر</button>}
-                                                    {isGreen && <button className="flex-1 text-xs py-1.5 rounded-lg font-medium" style={{ background: "rgba(251,146,60,0.2)", color: "#fb923c", border: "1px solid rgba(251,146,60,0.3)", cursor: "pointer" }} onClick={() => { onSwitchPlayerTeam?.(p.id, "teamorange"); setSelectedPlayer(null); setSwitchFrom(null); }}> برتقالي</button>}
-                                                    <button className="flex-1 text-xs py-1.5 rounded-lg font-medium" style={{ background: "rgba(156,163,175,0.15)", color: "var(--text-3)", border: "1px solid rgba(156,163,175,0.25)", cursor: "pointer" }} onClick={() => { onSwitchPlayerTeam?.(p.id, "spectator"); setSelectedPlayer(null); setSwitchFrom(null); }}> مشاهد</button>
+                                                    {isOrange && <button className="flex-1 text-sm py-3 rounded-xl font-medium" style={{ background: "rgba(74,222,128,0.2)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)", cursor: "pointer", minHeight: "48px" }} onClick={() => { onSwitchPlayerTeam?.(p.id, "teamgreen"); setSelectedPlayer(null); setSwitchFrom(null); }}> أخضر</button>}
+                                                    {isGreen && <button className="flex-1 text-sm py-3 rounded-xl font-medium" style={{ background: "rgba(251,146,60,0.2)", color: "#fb923c", border: "1px solid rgba(251,146,60,0.3)", cursor: "pointer", minHeight: "48px" }} onClick={() => { onSwitchPlayerTeam?.(p.id, "teamorange"); setSelectedPlayer(null); setSwitchFrom(null); }}> برتقالي</button>}
+                                                    <button className="flex-1 text-sm py-3 rounded-xl font-medium" style={{ background: "rgba(156,163,175,0.15)", color: "var(--text-3)", border: "1px solid rgba(156,163,175,0.25)", cursor: "pointer", minHeight: "48px" }} onClick={() => { onSwitchPlayerTeam?.(p.id, "spectator"); setSelectedPlayer(null); setSwitchFrom(null); }}> مشاهد</button>
                                                 </>
                                             )}
-                                            <button className="text-xs py-1.5 px-2.5 rounded-lg font-medium" style={{ background: "rgba(239,68,68,0.18)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", cursor: "pointer" }} onClick={() => { onKickPlayer?.(p.id); setSelectedPlayer(null); setSwitchFrom(null); }}>🚫</button>
+                                            <button className="text-xl py-3 px-3.5 rounded-xl font-medium" style={{ background: "rgba(239,68,68,0.18)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", cursor: "pointer", minHeight: "48px" }} onClick={() => { onKickPlayer?.(p.id); setSelectedPlayer(null); setSwitchFrom(null); }}>🚫</button>
                                         </div>
                                     )}
                                 </div>
@@ -603,28 +612,28 @@ export default function GameMasterPanel({
                 {/* ═══ TAB: SETTINGS ═══ */}
                 {activeTab === "settings" && (
                     <div className="space-y-2">
-                        <button className="w-full py-3 rounded-xl font-bold text-sm" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--text-1)", cursor: "pointer" }} onClick={onNextRound}>
+                        <button className="w-full py-4 rounded-xl font-bold text-base" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--text-1)", cursor: "pointer", minHeight: "56px" }} onClick={onNextRound}>
                             ⏭️ الجولة التالية
                         </button>
 
                         <button
-                            className="w-full py-3 rounded-xl font-bold text-sm"
-                            style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)", color: "#facc15", cursor: "pointer" }}
+                            className="w-full py-4 rounded-xl font-bold text-base"
+                            style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)", color: "#facc15", cursor: "pointer", minHeight: "56px" }}
                             onClick={onSwapTeams}
                         >
                             🔄 تبديل الفرق (برتقالي ↔ أخضر)
                         </button>
 
                         {confirmReset ? (
-                            <div className="rounded-xl p-2.5 space-y-1.5" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
-                                <p className="text-xs text-center font-bold" style={{ color: "#f87171" }}>⚠️ تأكيد إعادة اللعبة</p>
+                            <div className="rounded-xl p-3 space-y-2" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
+                                <p className="text-sm text-center font-bold" style={{ color: "#f87171" }}>⚠️ تأكيد إعادة اللعبة</p>
                                 <div className="flex gap-2">
-                                    <button className="flex-1 py-1.5 rounded-lg text-xs font-black" style={{ background: "#dc2626", color: "#fff", border: "none", cursor: "pointer" }} onClick={() => { onResetGame(); setConfirmReset(false); }}>✓ نعم</button>
-                                    <button className="flex-1 py-1.5 rounded-lg text-xs font-bold" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-2)", cursor: "pointer" }} onClick={() => setConfirmReset(false)}>✕ إلغاء</button>
+                                    <button className="flex-1 py-3.5 rounded-lg text-sm font-black" style={{ background: "#dc2626", color: "#fff", border: "none", cursor: "pointer", minHeight: "52px" }} onClick={() => { onResetGame(); setConfirmReset(false); }}>✓ نعم</button>
+                                    <button className="flex-1 py-3.5 rounded-lg text-sm font-bold" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-2)", cursor: "pointer", minHeight: "52px" }} onClick={() => setConfirmReset(false)}>✕ إلغاء</button>
                                 </div>
                             </div>
                         ) : (
-                            <button className="w-full py-2 rounded-xl font-bold text-xs" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.22)", color: "#f87171", cursor: "pointer" }} onClick={() => setConfirmReset(true)}>
+                            <button className="w-full py-4 rounded-xl font-bold text-sm" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.22)", color: "#f87171", cursor: "pointer", minHeight: "52px" }} onClick={() => setConfirmReset(true)}>
                                 🗑️ إعادة اللعبة من البداية
                             </button>
                         )}
@@ -632,15 +641,15 @@ export default function GameMasterPanel({
                         <div style={{ height: "1px", background: "var(--border)" }} />
 
                         {confirmEnd ? (
-                            <div className="rounded-xl p-2.5 space-y-1.5" style={{ background: "rgba(220,38,38,0.10)", border: "1px solid rgba(220,38,38,0.30)" }}>
-                                <p className="text-xs text-center font-bold" style={{ color: "#fca5a5" }}>⚠️ هذا سيطرد جميع اللاعبين!</p>
+                            <div className="rounded-xl p-3 space-y-2" style={{ background: "rgba(220,38,38,0.10)", border: "1px solid rgba(220,38,38,0.30)" }}>
+                                <p className="text-sm text-center font-bold" style={{ color: "#fca5a5" }}>⚠️ هذا سيطرد جميع اللاعبين!</p>
                                 <div className="flex gap-2">
-                                    <button className="flex-1 py-1.5 rounded-lg text-xs font-black" style={{ background: "#991b1b", color: "#fff", border: "none", cursor: "pointer" }} onClick={() => { onEndSession(); setConfirmEnd(false); }}>✓ إنهاء</button>
-                                    <button className="flex-1 py-1.5 rounded-lg text-xs font-bold" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-2)", cursor: "pointer" }} onClick={() => setConfirmEnd(false)}>✕ إلغاء</button>
+                                    <button className="flex-1 py-3.5 rounded-lg text-sm font-black" style={{ background: "#991b1b", color: "#fff", border: "none", cursor: "pointer", minHeight: "52px" }} onClick={() => { onEndSession(); setConfirmEnd(false); }}>✓ إنهاء</button>
+                                    <button className="flex-1 py-3.5 rounded-lg text-sm font-bold" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-2)", cursor: "pointer", minHeight: "52px" }} onClick={() => setConfirmEnd(false)}>✕ إلغاء</button>
                                 </div>
                             </div>
                         ) : (
-                            <button className="w-full py-2 rounded-xl font-bold text-xs" style={{ background: "rgba(220,38,38,0.07)", border: "1px solid rgba(220,38,38,0.20)", color: "#fca5a5", cursor: "pointer" }} onClick={() => setConfirmEnd(true)}>
+                            <button className="w-full py-4 rounded-xl font-bold text-sm" style={{ background: "rgba(220,38,38,0.07)", border: "1px solid rgba(220,38,38,0.20)", color: "#fca5a5", cursor: "pointer", minHeight: "52px" }} onClick={() => setConfirmEnd(true)}>
                                 🛑 إنهاء الجلسة نهائيا
                             </button>
                         )}

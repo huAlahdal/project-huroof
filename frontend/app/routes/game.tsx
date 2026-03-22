@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
-import { invoke, on, startConnection } from "~/lib/signalr";
+import { invoke, on, startConnection, setReconnectedCallback, setDisconnectedCallback, getConnectionState, resetConnection } from "~/lib/signalr";
+import * as signalR from "@microsoft/signalr";
 import { useAuth } from "~/contexts/AuthContext";
 import { fetchRandomQuestion } from "~/lib/questions";
 import type { Question } from "~/lib/questions";
@@ -210,6 +211,7 @@ export default function GamePage() {
     const [state, setState] = useState<GameState | null>(null);
     const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
     const [connected, setConnected] = useState(false);
+    const [reconnecting, setReconnecting] = useState(false);
     const [error, setError] = useState("");
     const [notification, setNotification] = useState("");
     const [changeTeamModal, setChangeTeamModal] = useState<{
@@ -226,6 +228,7 @@ export default function GamePage() {
     const [timerPhase, setTimerPhase] = useState<"first" | "second" | "expired" | "open" | null>(null);
     const [timerSeconds, setTimerSeconds] = useState(0);
     const [timerPosition, setTimerPosition] = useState<"bottom-left" | "bottom-center" | "bottom-right" | "top-left" | "top-center" | "top-right" | "center">("bottom-right");
+    const [showFloatingTimer, setShowFloatingTimer] = useState(true);
     const prevTimerPhaseRef = useRef<string | null>(null);
     // Holds the current interval's cancel fn so GM action handlers can stop it immediately
     const cancelTimerRef = useRef<(() => void) | null>(null);
@@ -267,43 +270,93 @@ export default function GamePage() {
 
     // ─── Connection Setup ────────────────────────────────────
 
+    // Stable ref so visibility/online handlers always call the latest rejoin logic
+    // without needing to be recreated on each render.
+    const rejoinRef = useRef<(() => Promise<void>) | null>(null);
+
     useEffect(() => {
         if (!sessionId || authLoading) return;
         if (!user) { navigate("/"); return; }
 
         let cancelled = false;
-        const init = async () => {
-            try {
-                await startConnection();
 
+        const rejoin = async () => {
+            try {
+                setReconnecting(true);
+                await startConnection();
                 const name = user.inGameName || "لاعب";
                 const result = await invoke<{ success?: boolean; error?: string; playerId?: string }>(
                     "JoinSession", sessionId, null, name
                 );
-                if (!cancelled) {
-                    if (result.error && result.error.includes("not found")) {
-                        navigate("/");
-                        return;
-                    }
-                    if (result.success) {
-                        setMyPlayerId(result.playerId || null);
-                        setConnected(true);
-                    } else {
-                        setError(result.error || "فشل الانضمام للجلسة");
-                    }
-                }
-
-                if (!cancelled && !result?.success) {
-                    // If we still can't join (password-protected?), go home
+                if (cancelled) return;
+                if (result.error && result.error.includes("not found")) {
                     navigate("/");
+                    return;
+                }
+                if (result.success) {
+                    setMyPlayerId(result.playerId || null);
+                    setConnected(true);
+                    setReconnecting(false);
+                } else {
+                    setError(result.error || "فشل الانضمام للجلسة");
+                    setReconnecting(false);
                 }
             } catch {
-                if (!cancelled) navigate("/");
+                setReconnecting(false);
+                if (!cancelled) {
+                    // Show reconnecting state — don't navigate away immediately
+                    setConnected(false);
+                }
             }
         };
 
-        init();
-        return () => { cancelled = true; };
+        rejoinRef.current = rejoin;
+
+        // Called by SignalR's onreconnected — transport is back, re-register in session
+        setReconnectedCallback(() => { rejoinRef.current?.(); });
+
+        // Called when all retries exhausted (connection permanently closed)
+        setDisconnectedCallback(() => {
+            if (!cancelled) {
+                setConnected(false);
+                setReconnecting(true); // show overlay — will recover via visibility/online
+                // Reset the singleton so a fresh connection is built on next attempt
+                resetConnection();
+            }
+        });
+
+        // Re-connect when the tab becomes visible again (e.g. phone unlocked)
+        const handleVisibility = () => {
+            if (document.visibilityState === "visible") {
+                const state = getConnectionState();
+                if (state === signalR.HubConnectionState.Disconnected) {
+                    rejoinRef.current?.();
+                }
+            }
+        };
+
+        // Re-connect when network comes back (airplane mode off, wifi reconnected)
+        const handleOnline = () => {
+            const state = getConnectionState();
+            if (state === signalR.HubConnectionState.Disconnected) {
+                rejoinRef.current?.();
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibility);
+        window.addEventListener("online", handleOnline);
+
+        // Initial connection
+        rejoin();
+
+        return () => {
+            cancelled = true;
+            setReconnectedCallback(null);
+            setDisconnectedCallback(null);
+            rejoinRef.current = null;
+            document.removeEventListener("visibilitychange", handleVisibility);
+            window.removeEventListener("online", handleOnline);
+        };
     }, [sessionId, navigate, authLoading, user]);
 
     // ─── SignalR Events ──────────────────────────────────────
@@ -693,7 +746,7 @@ export default function GamePage() {
         navigate("/");
     }, [navigate]);
 
-    // ─── Loading ─────────────────────────────────────────────
+    // ─── Loading / Reconnecting ──────────────────────────────
 
     if (!state) {
         return (
@@ -705,6 +758,17 @@ export default function GamePage() {
             </div>
         );
     }
+
+    // Reconnecting overlay — shown over the game while auto-rejoin is in progress
+    const ReconnectingOverlay = reconnecting && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+            <div className="bg-[var(--card-bg)] border border-white/10 rounded-2xl p-8 text-center shadow-2xl max-w-xs w-full mx-4">
+                <div className="text-4xl mb-4 logo-spin">ح</div>
+                <p className="text-white font-bold text-lg mb-1">جاري إعادة الاتصال…</p>
+                <p className="text-white/50 text-sm">لا تغلق الصفحة، سيتم استئناف اللعبة تلقائيًا</p>
+            </div>
+        </div>
+    );
 
     // ─── Buzzer announcement info ────────────────────────────
 
@@ -796,7 +860,8 @@ export default function GamePage() {
 
                     {/* Right: Controls */}
                     <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="hidden sm:flex items-center">
+
+                        <div className="hidden sm:flex items-center gap-2">
                             <span className="text-[11px] font-bold me-1.5" style={{ color: "var(--text-3)" }}>المؤقت:</span>
                             <Dropdown
                                 value={timerPosition}
@@ -813,6 +878,14 @@ export default function GamePage() {
                                     { value: "center", label: "الوسط" },
                                 ]}
                             />
+                            <button
+                                className={`ml-2 px-2 py-1 rounded-md text-xs font-bold border transition-colors ${showFloatingTimer ? 'bg-green-500/10 border-green-400 text-green-600' : 'bg-gray-500/10 border-gray-400 text-gray-500'}`}
+                                title={showFloatingTimer ? 'إخفاء المؤقت العائم' : 'إظهار المؤقت العائم'}
+                                onClick={() => setShowFloatingTimer(v => !v)}
+                                type="button"
+                            >
+                                {showFloatingTimer ? 'إخفاء المؤقت' : 'إظهار المؤقت'}
+                            </button>
                         </div>
 
                         <div className="w-px h-5 bg-(--border) mx-0.5 hidden sm:block"></div>
@@ -890,7 +963,7 @@ export default function GamePage() {
             )}
 
             {/* Main content - Better Spaced */}
-            <div className="flex flex-1 gap-6 sm:gap-8 p-4 sm:p-8 lg:p-10 min-h-0 overflow-hidden w-full">
+            <div className="flex flex-1 gap-6 sm:gap-8 p-4 sm:p-8 lg:p-10 min-h-0 sm:overflow-hidden overflow-y-auto w-full">
                 {/* Desktop scoreboard - Better Spaced */}
                 <aside className="hidden lg:flex w-64 xl:w-72 shrink-0 flex-col gap-6">
                     <ScoreBoard
@@ -945,7 +1018,7 @@ export default function GamePage() {
                     </div>
 
                     {/* Hex grid — hidden on small screens when buzzer needed - Better Spaced */}
-                    <div className="rounded-2xl bg-(--surface) border border-(--border) w-full flex-1 items-center justify-center p-4 lg:p-8 min-h-0 hidden sm:flex shadow-xl">
+                    <div className="rounded-2xl bg-(--surface) border border-(--border) w-full flex-1 items-center justify-center p-4 lg:p-8 min-h-0 hidden sm:flex shadow-xl" style={{ minHeight: 0 }}>
                         <HexGrid
                             grid={state.grid}
                             gridSize={state.gridSize}
@@ -957,9 +1030,20 @@ export default function GamePage() {
                     </div>
 
                     {/* Mobile: show buzzer or grid - Better Spaced */}
-                    <div className="sm:hidden w-full flex-1 flex flex-col gap-4 min-h-0 mt-4">
+                    <div className="sm:hidden w-full flex flex-col gap-4 mt-2">
+                        {/* Floating timer toggle for mobile */}
+                        <div className="flex justify-end mb-1">
+                            <button
+                                className={`px-2 py-1 rounded-md text-xs font-bold border transition-colors ${showFloatingTimer ? 'bg-green-500/10 border-green-400 text-green-600' : 'bg-gray-500/10 border-gray-400 text-gray-500'}`}
+                                title={showFloatingTimer ? 'إخفاء المؤقت العائم' : 'إظهار المؤقت العائم'}
+                                onClick={() => setShowFloatingTimer(v => !v)}
+                                type="button"
+                            >
+                                {showFloatingTimer ? 'إخفاء المؤقت' : 'إظهار المؤقت'}
+                            </button>
+                        </div>
                         {/* Always show a small grid on mobile too */}
-                        <div className="surface-card w-full p-1.5 flex items-center justify-center" style={{ maxHeight: "40vh" }}>
+                        <div className="surface-card w-full p-1.5 flex items-center justify-center overflow-hidden" style={{ maxHeight: isGameMaster ? "280px" : "40vh" }}>
                             <HexGrid
                                 grid={state.grid}
                                 gridSize={state.gridSize}
@@ -967,6 +1051,7 @@ export default function GamePage() {
                                 onOwnedCellClick={isGameMaster ? handleOwnedCellClick : undefined}
                                 interactive={isGameMaster && (isIdle || isSelected)}
                                 isGameMaster={isGameMaster}
+                                hexSize={isGameMaster ? 36 : 52}
                             />
                         </div>
 
@@ -1010,7 +1095,7 @@ export default function GamePage() {
 
                     {/* Mobile GM Panel */}
                     {isGameMaster && (
-                        <div className="sm:hidden w-full surface-card p-3 overflow-y-auto" style={{ maxHeight: "60vh" }}>
+                        <div className="sm:hidden w-full surface-card p-3 pb-36">
                             <GameMasterPanel
                                 selectedLetter={state.question.letter}
                                 questionText={state.question.questionText}
@@ -1156,6 +1241,39 @@ export default function GamePage() {
                 </aside>
             </div>
 
+            {/* Mobile GM: Sticky award bar — always at the bottom for quick access */}
+            {isGameMaster && state.question.letter && (
+                <div
+                    className="sm:hidden fixed bottom-0 left-0 right-0 z-30 px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.4)]"
+                    style={{ background: "var(--bg)", borderTop: "1px solid var(--border)" }}
+                >
+                    <div className="grid grid-cols-2 gap-3 max-w-lg mx-auto">
+                        <button
+                            className="btn-orange py-5 text-lg font-black rounded-2xl active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg"
+                            onClick={() => handleAward("orange")}
+                            disabled={!state.question.letter}
+                        >
+                            🟠 <span>{orangeName.split(" - ")[0]}</span>
+                        </button>
+                        <button
+                            className="btn-green py-5 text-lg font-black rounded-2xl active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg"
+                            onClick={() => handleAward("green")}
+                            disabled={!state.question.letter}
+                        >
+                            🟢 <span>{greenName.split(" - ")[0]}</span>
+                        </button>
+                    </div>
+                    <button
+                        className="w-full mt-2 py-2.5 rounded-xl font-bold text-sm max-w-lg mx-auto block disabled:opacity-40"
+                        style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-3)" }}
+                        onClick={handleSkip}
+                        disabled={!state.question.letter}
+                    >
+                         تخطي الحرف
+                    </button>
+                </div>
+            )}
+
             {/* Round transition overlay */}
             {showRoundTransition && roundTransitionData && (
                 <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
@@ -1179,9 +1297,9 @@ export default function GamePage() {
             )}
 
             {/* Buzzer announcement overlay - positioned */}
-            {(buzzerAnnounce || (state.buzzer.buzzerIsOpenMode && !state.buzzer.buzzerLocked)) && (
+            {showFloatingTimer && (buzzerAnnounce || (state.buzzer.buzzerIsOpenMode && !state.buzzer.buzzerLocked)) && (
                 <div
-                    className={`fixed z-40 fade-in-scale transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+                    className={`fixed z-40 pointer-events-none fade-in-scale transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
                         timerPosition === 'center' ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' :
                         `${timerPosition.includes('top') ? 'top-8' : 'bottom-8'} ${
                         timerPosition.includes('left') ? 'left-8' : 
@@ -1334,6 +1452,9 @@ export default function GamePage() {
                 greenTeamName={greenName}
                 onChangeTeam={handleChangeHexWinner}
             />
+
+            {/* Reconnecting overlay — shown when the mobile browser reconnects after backgrounding */}
+            {ReconnectingOverlay}
         </div>
     );
 }
